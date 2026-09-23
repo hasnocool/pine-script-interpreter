@@ -1,0 +1,9 @@
+// A small foundation example, not yet a complete Pine indicator.
+threshold = 2 + 3
+isReady = threshold > 4
+label = "threshold is ready"
+
+if isReady
+    result = threshold * 2
+else
+    result = 0
