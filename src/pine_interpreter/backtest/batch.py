@@ -7,7 +7,7 @@ import json
 import os
 import sys
 import time
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -142,6 +142,67 @@ class BatchBacktestReport:
             "index": self.index,
             "results": [result.to_dict() for result in self.results],
         }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> BatchBacktestReport:
+        metadata = data.get("metadata")
+        if not isinstance(metadata, Mapping):
+            raise BacktestValidationError("batch report metadata is missing")
+        results_data = data.get("results")
+        if not isinstance(results_data, list):
+            raise BacktestValidationError("batch report results are missing")
+        results: list[StrategyResult] = []
+        for row in results_data:
+            if not isinstance(row, Mapping):
+                raise BacktestValidationError("batch report result must be an object")
+            results.append(
+                StrategyResult(
+                    path=str(row.get("path", "")),
+                    name=str(row.get("name", "")),
+                    status=str(row.get("status", "runtime_error")),
+                    trades=int(row.get("trades", 0)),
+                    final_equity=(
+                        None if row.get("final_equity") is None else float(row["final_equity"])
+                    ),
+                    total_return_pct=(
+                        None
+                        if row.get("total_return_pct") is None
+                        else float(row["total_return_pct"])
+                    ),
+                    max_drawdown_pct=(
+                        None
+                        if row.get("max_drawdown_pct") is None
+                        else float(row["max_drawdown_pct"])
+                    ),
+                    elapsed_seconds=float(row.get("elapsed_seconds", 0)),
+                    error=None if row.get("error") is None else str(row["error"]),
+                )
+            )
+        try:
+            started_at = datetime.fromisoformat(str(metadata["started_at"]))
+            finished_at = datetime.fromisoformat(str(metadata["finished_at"]))
+            return cls(
+                str(metadata["exchange"]),
+                str(metadata["symbol"]),
+                str(metadata["timeframe"]),
+                started_at,
+                finished_at,
+                int(metadata["candles"]),
+                tuple(results),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise BacktestValidationError(f"invalid batch report metadata: {exc}") from exc
+
+    @classmethod
+    def from_json(cls, path: str | Path) -> BatchBacktestReport:
+        source = Path(path)
+        try:
+            data = json.loads(source.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise BacktestValidationError(f"could not load batch report {source}: {exc}") from exc
+        if not isinstance(data, Mapping):
+            raise BacktestValidationError("batch report must contain a JSON object")
+        return cls.from_dict(data)
 
     def write_json(self, path: str | Path) -> Path:
         destination = Path(path)

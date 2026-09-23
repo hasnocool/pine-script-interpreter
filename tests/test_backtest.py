@@ -135,3 +135,5 @@ def test_strategy_batch_indexes_results_and_records_failures(tmp_path: Path) -> 
 
     output = report.write_json(tmp_path / "baseline.json")
     assert output.exists()
+    loaded = type(report).from_json(output)
+    assert loaded.by_name["alpha"].status == alpha.status
