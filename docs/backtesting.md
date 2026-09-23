@@ -100,3 +100,25 @@ for trade in report:
 Reports include total return, maximum drawdown, win rate, profit factor,
 completed trades, and an indexed equity curve. `print_report(report)` is a
 short alias for `report.print()`.
+
+## Full strategy baseline
+
+The batch runner discovers every file in an archive's `Strategies/` directory,
+fetches the selected market once, and runs independent files in parallel:
+
+```bash
+pine-backtest-batch \
+  --root /path/to/PineScripts_All \
+  --exchange binance \
+  --symbol BTC/USDT \
+  --timeframe 1h \
+  --limit 500 \
+  --workers 8 \
+  --cache .cache/btc-usdt-1h.json \
+  --output reports/baseline-btcusdt-1h.json \
+  --csv reports/baseline-btcusdt-1h.csv
+```
+
+The command shows a live progress bar, rate, and ETA on stderr. The JSON report
+contains a summary, a name/path index, and one normalized result per strategy;
+unsupported or invalid scripts are recorded rather than stopping the batch.

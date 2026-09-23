@@ -33,9 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     try:
-        candles = CCXTDataFeed(args.exchange, args.symbol, args.timeframe).fetch(
-            limit=args.limit
-        )
+        candles = CCXTDataFeed(args.exchange, args.symbol, args.timeframe).fetch(limit=args.limit)
         report = BacktestEngine(
             BacktestConfig(
                 initial_cash=args.cash,

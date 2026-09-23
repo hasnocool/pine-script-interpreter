@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -8,7 +9,9 @@ from pine_interpreter import (
     BacktestValidationError,
     Candle,
     CCXTDataFeed,
+    discover_strategy_files,
     print_report,
+    run_strategy_batch,
 )
 
 
@@ -102,3 +105,33 @@ def test_candle_from_ccxt_row_converts_milliseconds() -> None:
 
     assert candle.timestamp == datetime.fromtimestamp(1_700_000_000, UTC)
     assert candle.volume == 3
+
+
+def test_strategy_batch_indexes_results_and_records_failures(tmp_path: Path) -> None:
+    strategy_dir = tmp_path / "Strategies"
+    strategy_dir.mkdir()
+    first = strategy_dir / "alpha.pine"
+    second = strategy_dir / "broken.pine"
+    first.write_text(PINE_STRATEGY, encoding="utf-8")
+    second.write_text("this is not valid Pine ===", encoding="utf-8")
+
+    paths = discover_strategy_files(tmp_path)
+    report = run_strategy_batch(
+        paths,
+        make_candles([100, 101, 102, 101, 100, 99, 100, 101]),
+        exchange="synthetic",
+        symbol="TEST/USDT",
+        timeframe="1d",
+        max_workers=1,
+        show_progress=False,
+    )
+
+    assert len(report) == 2
+    alpha = report.by_name["alpha"]
+    assert alpha.status in {"backtested", "no_orders"}
+    assert report[1].status == "parse_error"
+    assert report.summary["total"] == 2
+    assert report.index["alpha"].endswith("alpha.pine")
+
+    output = report.write_json(tmp_path / "baseline.json")
+    assert output.exists()

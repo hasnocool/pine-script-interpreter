@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import importlib
+import json
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from pine_interpreter.backtest.models import BacktestValidationError, Candle
@@ -148,6 +150,31 @@ def candles_to_rows(candles: Sequence[Candle]) -> list[list[float]]:
         ]
         for candle in candles
     ]
+
+
+def save_candles(path: str | Path, candles: Sequence[Candle]) -> Path:
+    """Persist normalized candles as a small JSON cache."""
+
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(
+        json.dumps(candles_to_rows(candles)),
+        encoding="utf-8",
+    )
+    return destination
+
+
+def load_candles(path: str | Path) -> tuple[Candle, ...]:
+    """Load a cache created by :func:`save_candles`."""
+
+    source = Path(path)
+    try:
+        rows = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise BacktestValidationError(f"could not load candle cache {source}: {exc}") from exc
+    if not isinstance(rows, list):
+        raise BacktestValidationError("candle cache must contain a JSON list")
+    return tuple(Candle.from_ohlcv(row) for row in rows)
 
 
 def utc_now() -> datetime:
