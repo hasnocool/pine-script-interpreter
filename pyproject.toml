@@ -24,6 +24,7 @@ dev = [
 pine-interpreter = "pine_interpreter.cli:main"
 pine-backtest = "pine_interpreter.backtest.__main__:main"
 pine-backtest-batch = "pine_interpreter.backtest.batch_cli:main"
+pine-backtest-report = "pine_interpreter.backtest.report_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

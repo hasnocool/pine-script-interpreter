@@ -102,8 +102,18 @@ pine-backtest-batch \
 
 The batch command fetches public Binance BTC/USDT 1h data once, processes the
 archive's `Strategies/` directory in parallel with a progress bar/ETA, and
-writes an indexed JSON/CSV report. See [docs/backtesting.md](docs/backtesting.md)
-for supported built-ins, execution limits, and report loading/indexing.
+writes an indexed JSON/CSV report. A plain-English Markdown summary and
+best-100 list can be generated from that JSON with:
+
+```bash
+pine-backtest-report \
+  --input reports/baseline-btcusdt-1h.json \
+  --cache reports/.cache-btcusdt-1h.json \
+  --output-dir reports
+```
+
+See [docs/backtesting.md](docs/backtesting.md) for supported built-ins,
+execution limits, report loading/indexing, and ranking options.
 
 ## Design notes
 

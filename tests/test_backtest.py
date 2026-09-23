@@ -11,9 +11,12 @@ from pine_interpreter import (
     BacktestValidationError,
     Candle,
     CCXTDataFeed,
+    build_overall_markdown,
+    build_top_strategies_markdown,
     discover_strategy_files,
     print_report,
     run_strategy_batch,
+    write_plain_english_reports,
 )
 
 
@@ -139,6 +142,21 @@ def test_strategy_batch_indexes_results_and_records_failures(tmp_path: Path) -> 
     assert output.exists()
     loaded = type(report).from_json(output)
     assert loaded.by_name["alpha"].status == alpha.status
+    assert loaded.config == report.config
+
+    top_markdown = build_top_strategies_markdown(report, top_count=1)
+    overall_markdown = build_overall_markdown(report, top_count=1)
+    assert "# Top 1 Pine Strategies" in top_markdown
+    assert "# Overall Pine Backtest Baseline" in overall_markdown
+    assert "Results at a glance" in overall_markdown
+
+    top_path, overall_path = write_plain_english_reports(
+        report,
+        tmp_path / "markdown",
+        top_count=1,
+    )
+    assert top_path.exists()
+    assert overall_path.exists()
 
 
 def test_runtime_step_limit_stops_runaway_strategy() -> None:

@@ -14,6 +14,13 @@ from pine_interpreter.backtest.data import (
     save_candles,
 )
 from pine_interpreter.backtest.engine import BacktestEngine, PineBacktester
+from pine_interpreter.backtest.markdown import (
+    Ranking,
+    build_overall_markdown,
+    build_top_strategies_markdown,
+    ranked_strategies,
+    write_plain_english_reports,
+)
 from pine_interpreter.backtest.models import (
     BacktestConfig,
     BacktestError,
@@ -34,6 +41,9 @@ __all__ = [
     "BacktestReport",
     "BacktestValidationError",
     "BatchBacktestReport",
+    "Ranking",
+    "build_overall_markdown",
+    "build_top_strategies_markdown",
     "CCXTDataFeed",
     "Candle",
     "EquityPoint",
@@ -47,4 +57,6 @@ __all__ = [
     "print_report",
     "run_strategy_batch",
     "save_candles",
+    "ranked_strategies",
+    "write_plain_english_reports",
 ]

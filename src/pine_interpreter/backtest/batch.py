@@ -53,6 +53,7 @@ class BatchBacktestReport:
     finished_at: datetime
     candles: int
     results: tuple[StrategyResult, ...]
+    config: BacktestConfig | None = None
 
     @property
     def elapsed_seconds(self) -> float:
@@ -129,6 +130,8 @@ class BatchBacktestReport:
             return self.exchange
         if key == "candles":
             return self.candles
+        if key == "config":
+            return self.config
         result = self.by_name.get(key) or self.by_path.get(key)
         if result is not None:
             return result
@@ -146,6 +149,7 @@ class BatchBacktestReport:
             },
             "summary": self.summary,
             "index": self.index,
+            "config": asdict(self.config) if self.config is not None else None,
             "results": [result.to_dict() for result in self.results],
         }
 
@@ -184,6 +188,21 @@ class BatchBacktestReport:
                     error=None if row.get("error") is None else str(row["error"]),
                 )
             )
+        config_data = data.get("config")
+        config: BacktestConfig | None = None
+        if isinstance(config_data, Mapping):
+            try:
+                config = BacktestConfig(
+                    initial_cash=float(config_data.get("initial_cash", 10_000)),
+                    fee_rate=float(config_data.get("fee_rate", 0.001)),
+                    slippage_bps=float(config_data.get("slippage_bps", 0.0)),
+                    default_qty=float(config_data.get("default_qty", 1.0)),
+                    allow_short=bool(config_data.get("allow_short", False)),
+                    close_at_end=bool(config_data.get("close_at_end", False)),
+                    max_execution_steps=int(config_data.get("max_execution_steps", 1_000_000)),
+                )
+            except (TypeError, ValueError) as exc:
+                raise BacktestValidationError(f"invalid batch report config: {exc}") from exc
         try:
             started_at = datetime.fromisoformat(str(metadata["started_at"]))
             finished_at = datetime.fromisoformat(str(metadata["finished_at"]))
@@ -195,6 +214,7 @@ class BatchBacktestReport:
                 finished_at,
                 int(metadata["candles"]),
                 tuple(results),
+                config,
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise BacktestValidationError(f"invalid batch report metadata: {exc}") from exc
@@ -413,4 +433,5 @@ def run_strategy_batch(
         finished_at,
         len(candles),
         tuple(result for result in results if result is not None),
+        batch_config,
     )

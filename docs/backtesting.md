@@ -124,6 +124,35 @@ pine-backtest-batch \
 The command shows a live progress bar, rate, and ETA on stderr. The JSON report
 contains a summary, a name/path index, and one normalized result per strategy;
 unsupported, invalid, and execution-limit scripts are recorded rather than
-stopping the batch. Batch runs allow short entries by default; pass
+stopping the batch. The batch CLI allows short entries by default; pass
 `--long-only` to reject them. `--max-steps` bounds pathological loops so one
 script cannot stall the complete baseline.
+
+## Plain-English Markdown reports
+
+The batch JSON can be turned into a readable overall report and a ranked
+best-strategy report:
+
+```bash
+pine-backtest-report \
+  --input reports/baseline-btcusdt-1h.json \
+  --cache reports/.cache-btcusdt-1h.json \
+  --output-dir reports \
+  --top-count 100 \
+  --ranking return
+```
+
+This creates:
+
+- `reports/top-100-strategies.md` — the strongest eligible strategies, with
+  return, drawdown, trade count, final equity, and source file
+- `reports/overall-baseline.md` — a plain-English explanation of the entire
+  run, status totals, performance distribution, evaluation blockers, and
+  limitations
+
+Only strategies with at least one completed trade are eligible for the
+ranking. The default `return` ranking is raw return, with lower drawdown used
+as a tie-breaker. Use `--ranking risk-adjusted` for return divided by maximum
+drawdown, or `--ranking drawdown` to favor the lowest drawdown. The reports
+are a screening baseline and should not be treated as investment advice or
+out-of-sample validation.

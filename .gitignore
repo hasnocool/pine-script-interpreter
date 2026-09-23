@@ -14,4 +14,6 @@ htmlcov/
 .idea/
 .vscode/
 .DS_Store
-reports/
+reports/*
+!reports/
+!reports/*.md
