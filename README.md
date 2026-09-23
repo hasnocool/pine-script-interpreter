@@ -113,7 +113,8 @@ pine-backtest-report \
 ```
 
 See [docs/backtesting.md](docs/backtesting.md) for supported built-ins,
-execution limits, report loading/indexing, and ranking options.
+execution limits, report loading/indexing, and ranking options. The prioritized
+feature roadmap is in [RECOMMENDATIONS.md](RECOMMENDATIONS.md).
 
 ## Design notes
 
