@@ -77,6 +77,20 @@ The runtime currently covers a basic expression/statement subset. It does not ye
 
 See [docs/supported-language.md](docs/supported-language.md) for the exact subset and [docs/roadmap.md](docs/roadmap.md) for planned language support.
 
+## Backtesting
+
+The optional [`backtest`](docs/backtesting.md) module evaluates common Pine
+strategies against normalized OHLCV candles, can fetch public CCXT data, and
+returns a printable/indexable `BacktestReport`:
+
+```bash
+python -m pip install -e ".[backtest]"
+```
+
+The backtest runtime is deliberately separate from the basic expression
+runtime and currently targets common moving-average, crossover, and
+`strategy.entry`/`strategy.close` workflows.
+
 ## Design notes
 
 Pine is not a normal batch scripting language. Each script is compiled first, then evaluated repeatedly as new bars arrive. The runtime therefore needs a global bar counter, historical series access, persistent state, and careful handling of `var`, `varip`, `input`, and series-type qualifiers. Those concerns are kept in `runtime/` instead of being mixed into parsing code.
