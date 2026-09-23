@@ -15,7 +15,12 @@ from pathlib import Path
 from typing import Any, overload
 
 from pine_interpreter.backtest.engine import BacktestEngine
-from pine_interpreter.backtest.models import BacktestConfig, BacktestValidationError, Candle
+from pine_interpreter.backtest.models import (
+    BacktestConfig,
+    BacktestExecutionLimitError,
+    BacktestValidationError,
+    Candle,
+)
 from pine_interpreter.diagnostics import PineRuntimeError, PineSyntaxError
 
 
@@ -66,6 +71,7 @@ class BatchBacktestReport:
             "no_orders": statuses.get("no_orders", 0),
             "parse_errors": statuses.get("parse_error", 0),
             "validation_errors": statuses.get("validation_error", 0),
+            "execution_limits": statuses.get("execution_limit", 0),
             "runtime_errors": statuses.get("runtime_error", 0) + statuses.get("worker_error", 0),
             "io_errors": statuses.get("io_error", 0),
             **{f"status_{key}": value for key, value in sorted(statuses.items())},
@@ -275,6 +281,8 @@ def _run_strategy(path_text: str) -> StrategyResult:
         return _failed_result(path, name, "io_error", started, exc)
     except PineSyntaxError as exc:
         return _failed_result(path, name, "parse_error", started, exc)
+    except BacktestExecutionLimitError as exc:
+        return _failed_result(path, name, "execution_limit", started, exc)
     except BacktestValidationError as exc:
         return _failed_result(path, name, "validation_error", started, exc)
     except PineRuntimeError as exc:

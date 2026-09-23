@@ -24,6 +24,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--fee", type=float, default=0.001)
     parser.add_argument("--slippage-bps", type=float, default=0)
     parser.add_argument("--qty", type=float, default=1.0)
+    parser.add_argument("--long-only", action="store_true", help="Reject short entries")
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=250_000,
+        help="Maximum runtime steps per strategy before recording an execution limit",
+    )
     parser.add_argument("--output", type=Path, default=Path("backtest-baseline.json"))
     parser.add_argument("--csv", type=Path, default=None, help="Optional CSV results path")
     parser.add_argument("--cache", type=Path, default=None, help="Optional candle cache path")
@@ -55,6 +62,8 @@ def main() -> None:
                 fee_rate=args.fee,
                 slippage_bps=args.slippage_bps,
                 default_qty=args.qty,
+                allow_short=not args.long_only,
+                max_execution_steps=args.max_steps,
             ),
             max_workers=args.workers,
             show_progress=not args.no_progress,

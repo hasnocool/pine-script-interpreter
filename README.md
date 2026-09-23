@@ -89,7 +89,21 @@ python -m pip install -e ".[backtest]"
 
 The backtest runtime is deliberately separate from the basic expression
 runtime and currently targets common moving-average, crossover, and
-`strategy.entry`/`strategy.close` workflows.
+`strategy.entry`/`strategy.close` workflows. For a fast archive-wide baseline,
+install the extra and run:
+
+```bash
+pine-backtest-batch \
+  --root /path/to/PineScripts_All \
+  --cache .cache/btc-usdt-1h.json \
+  --output reports/baseline-btcusdt-1h.json \
+  --csv reports/baseline-btcusdt-1h.csv
+```
+
+The batch command fetches public Binance BTC/USDT 1h data once, processes the
+archive's `Strategies/` directory in parallel with a progress bar/ETA, and
+writes an indexed JSON/CSV report. See [docs/backtesting.md](docs/backtesting.md)
+for supported built-ins, execution limits, and report loading/indexing.
 
 ## Design notes
 

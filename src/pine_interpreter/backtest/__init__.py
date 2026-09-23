@@ -17,6 +17,7 @@ from pine_interpreter.backtest.engine import BacktestEngine, PineBacktester
 from pine_interpreter.backtest.models import (
     BacktestConfig,
     BacktestError,
+    BacktestExecutionLimitError,
     BacktestReport,
     BacktestValidationError,
     Candle,
@@ -29,6 +30,7 @@ __all__ = [
     "BacktestConfig",
     "BacktestEngine",
     "BacktestError",
+    "BacktestExecutionLimitError",
     "BacktestReport",
     "BacktestValidationError",
     "BatchBacktestReport",

@@ -74,6 +74,7 @@ The first backtest runtime supports:
 - `ta.sma`, `ema`, `rma`, `wma`, `hma`, `highest`, `lowest`, `change`, `roc`,
   `valuewhen`, `percentrank`, `crossover`, and `crossunder`
 - common `math.*`, `array.*`, `str.*`, and `input.*` helpers
+- common color/shape/position constants, `hl2`/`hlc3`/`ohlc4`, and `tr`
 - `strategy.entry`, `order`, `close`, `close_all`, `exit`, and cancel calls
 - `indicator`, `plot`, `alert`, and other nonessential declaration calls as
   no-ops
@@ -114,6 +115,7 @@ pine-backtest-batch \
   --timeframe 1h \
   --limit 500 \
   --workers 8 \
+  --max-steps 250000 \
   --cache .cache/btc-usdt-1h.json \
   --output reports/baseline-btcusdt-1h.json \
   --csv reports/baseline-btcusdt-1h.csv
@@ -121,4 +123,7 @@ pine-backtest-batch \
 
 The command shows a live progress bar, rate, and ETA on stderr. The JSON report
 contains a summary, a name/path index, and one normalized result per strategy;
-unsupported or invalid scripts are recorded rather than stopping the batch.
+unsupported, invalid, and execution-limit scripts are recorded rather than
+stopping the batch. Batch runs allow short entries by default; pass
+`--long-only` to reject them. `--max-steps` bounds pathological loops so one
+script cannot stall the complete baseline.

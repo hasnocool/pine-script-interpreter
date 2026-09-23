@@ -17,6 +17,10 @@ class BacktestValidationError(BacktestError, ValueError):
     """Raised when a strategy, candle, or configuration is invalid."""
 
 
+class BacktestExecutionLimitError(BacktestValidationError):
+    """Raised when a strategy exceeds the configured execution-step budget."""
+
+
 @dataclass(frozen=True, slots=True)
 class Candle:
     """One normalized OHLCV bar."""
@@ -91,6 +95,7 @@ class BacktestConfig:
     default_qty: float = 1.0
     allow_short: bool = False
     close_at_end: bool = False
+    max_execution_steps: int = 1_000_000
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.initial_cash) or self.initial_cash <= 0:
@@ -101,6 +106,12 @@ class BacktestConfig:
             raise BacktestValidationError("slippage_bps must be non-negative")
         if not math.isfinite(self.default_qty) or self.default_qty <= 0:
             raise BacktestValidationError("default_qty must be positive and finite")
+        if (
+            not isinstance(self.max_execution_steps, int)
+            or isinstance(self.max_execution_steps, bool)
+            or self.max_execution_steps <= 0
+        ):
+            raise BacktestValidationError("max_execution_steps must be a positive integer")
 
 
 @dataclass(frozen=True, slots=True)

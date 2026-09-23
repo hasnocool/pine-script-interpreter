@@ -18,6 +18,7 @@ from typing import Any
 
 from pine_interpreter.backtest.models import (
     BacktestConfig,
+    BacktestExecutionLimitError,
     BacktestReport,
     BacktestValidationError,
     Candle,
@@ -65,6 +66,69 @@ from pine_interpreter.parser.ast_nodes import (
     VariableDeclaration,
     WhileStatement,
 )
+
+_COLOR_NAMES = {
+    "aqua",
+    "black",
+    "blue",
+    "fuchsia",
+    "gray",
+    "green",
+    "grey",
+    "lime",
+    "maroon",
+    "navy",
+    "olive",
+    "orange",
+    "purple",
+    "red",
+    "silver",
+    "teal",
+    "white",
+    "yellow",
+}
+_NAMESPACE_NAMES = {
+    "array",
+    "barmerge",
+    "color",
+    "currency",
+    "display",
+    "format",
+    "input",
+    "location",
+    "math",
+    "plot",
+    "request",
+    "shape",
+    "size",
+    "strategy",
+    "syminfo",
+    "ta",
+    "timeframe",
+    "barstate",
+    "box",
+    "hline",
+    "label",
+    "line",
+    "matrix",
+    "position",
+    "table",
+}
+_TYPE_NAMES = {
+    "bool",
+    "const",
+    "float",
+    "input",
+    "int",
+    "integer",
+    "line",
+    "series",
+    "simple",
+    "string",
+    "resolution",
+    "source",
+    "timeframe",
+}
 
 
 class _Break(Exception):
@@ -211,6 +275,7 @@ class _PineRuntime:
         self.enums: dict[str, dict[str, Any]] = {}
         self.current_candle: Candle | None = None
         self.current_index = -1
+        self.execution_steps = 0
         self.pending_exits: dict[str, _PendingExit] = {}
         self._register_declarations()
 
@@ -324,6 +389,13 @@ class _PineRuntime:
             if key not in self.call_seen:
                 values.append(None)
 
+    def _consume_execution_step(self) -> None:
+        self.execution_steps += 1
+        if self.execution_steps > self.config.max_execution_steps:
+            raise BacktestExecutionLimitError(
+                f"execution step limit exceeded ({self.config.max_execution_steps})"
+            )
+
     def _execute_statements(self, statements: Sequence[Statement], values: dict[str, Any]) -> Any:
         result: Any = None
         for statement in statements:
@@ -331,6 +403,7 @@ class _PineRuntime:
         return result
 
     def _execute_statement(self, statement: Statement, values: dict[str, Any]) -> Any:
+        self._consume_execution_step()
         if isinstance(statement, VariableDeclaration):
             if statement.storage in {"var", "varip"} or statement.qualifier == "input":
                 if statement.name in self.persistent:
@@ -352,6 +425,10 @@ class _PineRuntime:
         if isinstance(statement, TupleDeclaration):
             value = self._evaluate(statement.value, values)
             if not isinstance(value, (list, tuple)) or len(value) != len(statement.targets):
+                if value is None:
+                    for target in statement.targets:
+                        self._assign(target, None, values)
+                    return None
                 raise BacktestValidationError("tuple assignment expects a matching sequence")
             for target, item in zip(statement.targets, value, strict=True):
                 self._assign(target, item, values)
@@ -376,6 +453,7 @@ class _PineRuntime:
             )
         if isinstance(statement, WhileStatement):
             while self._truthy(self._evaluate(statement.condition, values)):
+                self._consume_execution_step()
                 try:
                     self._execute_statements(statement.body, values)
                 except _Break:
@@ -413,6 +491,7 @@ class _PineRuntime:
         result: Any = None
         current = start
         while end is None or (current < end if step > 0 else current > end):
+            self._consume_execution_step()
             if isinstance(variable, str):
                 values[variable] = current
             else:
@@ -468,6 +547,40 @@ class _PineRuntime:
         if isinstance(expression, Identifier):
             if expression.name in values:
                 return values[expression.name]
+            if expression.name in _COLOR_NAMES:
+                return expression.name
+            if expression.name in _NAMESPACE_NAMES:
+                return expression.name
+            if expression.name in _TYPE_NAMES:
+                return expression.name
+            if expression.name == "tickerid":
+                return "UNKNOWN"
+            if expression.name == "dayofweek":
+                return self._time_call("weekday", ())
+            if expression.name == "tr":
+                high = self._number(values.get("high"))
+                low = self._number(values.get("low"))
+                previous = self.history.get("close", [])
+                previous_close = (
+                    self._number(previous[-1]) if previous else self._number(values.get("close"))
+                )
+                return max(
+                    high - low,
+                    abs(high - previous_close),
+                    abs(low - previous_close),
+                )
+            if expression.name in {"hl2", "hlc3", "ohlc4"}:
+                high = self._number(values.get("high"))
+                low = self._number(values.get("low"))
+                close = self._number(values.get("close"))
+                open_value = self._number(values.get("open"))
+                if expression.name == "hl2":
+                    return (high + low) / 2
+                if expression.name == "hlc3":
+                    return (high + low + close) / 3
+                return (open_value + high + low + close) / 4
+            if expression.name in {"hour", "year", "month", "dayofmonth", "minute", "second"}:
+                return self._time_call(expression.name, ())
             if expression.name in self.enums:
                 return expression.name
             if expression.name in self.functions:
@@ -577,10 +690,31 @@ class _PineRuntime:
                 return enum.get(expression.property, expression.property)
             if name == "strategy":
                 return self._strategy_member(expression.property)
+            if name in {
+                "color",
+                "currency",
+                "format",
+                "location",
+                "shape",
+                "size",
+                "display",
+                "plot",
+                "barmerge",
+                "hline",
+                "position",
+                "table",
+            }:
+                return expression.property
             if name == "math":
                 return {"pi": math.pi, "e": math.e, "phi": (1 + math.sqrt(5)) / 2}.get(
                     expression.property
                 )
+            if name == "dayofweek":
+                return expression.property
+            if name == "source":
+                return "close"
+            if name == "resolution":
+                return "1h"
             if name == "timeframe":
                 return {
                     "isdaily": False,
@@ -622,6 +756,12 @@ class _PineRuntime:
             if position is None:
                 return 0.0
             return position.quantity if position.side == "long" else -position.quantity
+        if name == "position_avg_price":
+            return position.entry_price if position is not None else 0.0
+        if name == "initial_capital":
+            return self.config.initial_cash
+        if name == "closedtrades":
+            return len(self.broker.trades)
         if name == "equity":
             return self.broker.equity(price)
         if name == "netprofit":
@@ -1036,8 +1176,8 @@ class _PineRuntime:
             self.values = old_values
 
     def _callee_name(self, expression: Expression) -> str | None:
-        if isinstance(expression, Identifier):
-            return expression.name
+        if isinstance(expression, (Identifier, NaLiteral)):
+            return "na" if isinstance(expression, NaLiteral) else expression.name
         if isinstance(expression, MemberExpression):
             object_name = self._callee_name(expression.object)
             return f"{object_name}.{expression.property}" if object_name else None
@@ -1062,8 +1202,10 @@ class _PineRuntime:
         return None
 
     def _history(self, expression: Expression, offset: int, values: dict[str, Any]) -> Any:
-        if offset <= 0:
-            raise BacktestValidationError("history offset must be positive")
+        if offset == 0:
+            return self._evaluate(expression, values)
+        if offset < 0:
+            raise BacktestValidationError("history offset cannot be negative")
         key = self._series_key(expression)
         if key is None:
             return None

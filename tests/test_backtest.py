@@ -1,11 +1,13 @@
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
 
 from pine_interpreter import (
     BacktestConfig,
     BacktestEngine,
+    BacktestExecutionLimitError,
     BacktestValidationError,
     Candle,
     CCXTDataFeed,
@@ -137,3 +139,21 @@ def test_strategy_batch_indexes_results_and_records_failures(tmp_path: Path) -> 
     assert output.exists()
     loaded = type(report).from_json(output)
     assert loaded.by_name["alpha"].status == alpha.status
+
+
+def test_runtime_step_limit_stops_runaway_strategy() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("runaway", overlay=true)
+        if bar_index == 0
+            while true
+                value = close
+        """
+    )
+
+    with pytest.raises(BacktestExecutionLimitError, match="execution step limit"):
+        BacktestEngine(BacktestConfig(max_execution_steps=20)).run(
+            source,
+            make_candles([100, 101]),
+        )
