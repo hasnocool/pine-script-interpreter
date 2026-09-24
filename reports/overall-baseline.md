@@ -4,15 +4,15 @@
 
 This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1h candles. It is intended to establish a broad technical baseline, not to certify strategies as profitable or safe.
 
-- **Run time:** 1h 18m 50s
+- **Run time:** 1h 23m 33s
 - **Runtime version:** `0.3.1`
 - **Strategies attempted:** 6,081
 - **Produced completed trades:** 1,962
-- **Ran without completed orders:** 3,861
-- **Could not be evaluated:** 258
+- **Ran without completed orders:** 3,862
+- **Could not be evaluated:** 257
 - **Saved partial interrupted results:** 127
-- **Used an explicit approximation:** 3,779
-- **Used a local Pine library:** 72
+- **Used an explicit approximation:** 3,780
+- **Used a local Pine library:** 73
 - **Duplicate source groups:** 0
 - **Detailed shortlist:** See the companion `top-100-strategies.md` report.
 - **Candle period:** 2026-09-03T02:00:00+00:00 through 2026-09-23T21:00:00+00:00
@@ -24,8 +24,8 @@ This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1
 | Outcome | Count | What it means |
 | --- | ---: | --- |
 | Backtested with trades | 1,962 | The runtime ran and closed at least one trade. |
-| No orders | 3,861 | The runtime ran but did not close a trade on this data. |
-| Validation errors | 131 | The current runtime could not evaluate part of the strategy. |
+| No orders | 3,862 | The runtime ran but did not close a trade on this data. |
+| Validation errors | 130 | The current runtime could not evaluate part of the strategy. |
 | Execution-limit stops | 127 | The strategy exceeded the safety step budget. |
 | Wall-clock timeout stops | 0 | The strategy exceeded the wall-clock budget; a partial snapshot may be saved. |
 | Runtime errors | 0 | An unexpected runtime problem stopped the strategy. |
@@ -62,12 +62,12 @@ These are the most common reasons a strategy could not be evaluated. They descri
 
 | Blocker | Strategies | Share of recorded errors |
 | --- | ---: | ---: |
-| Runaway loop or excessive runtime steps | 127 | 49.22% |
-| unknown Pine builtin | 36 | 13.95% |
-| imported Pine library was not found | 33 | 12.79% |
-| Unknown Pine identifier or constant | 18 | 6.98% |
-| Required numeric value was unavailable | 17 | 6.59% |
-| unknown strategy member | 4 | 1.55% |
+| Runaway loop or excessive runtime steps | 127 | 49.42% |
+| unknown Pine builtin | 35 | 13.62% |
+| imported Pine library was not found | 33 | 12.84% |
+| Unknown Pine identifier or constant | 18 | 7.00% |
+| Required numeric value was unavailable | 17 | 6.61% |
+| unknown strategy member | 4 | 1.56% |
 | circular Pine library import | 2 | 0.78% |
 | long stop must be below limit | 2 | 0.78% |
 | Unsupported call target | 2 | 0.78% |

@@ -1994,6 +1994,107 @@ class _PineRuntime:
             return self._string_call("tostring", arguments)
         if name == "dayofweek":
             return self._time_call("weekday", arguments)
+        if (
+            name.endswith(
+                (
+                    ".tradeCount",
+                    ".longWinPercent",
+                    ".shortWinPercent",
+                    ".breakEvenCount",
+                    ".breakEvenPercent",
+                    ".maxDrawdownRealized",
+                    ".totalPipReturn",
+                    ".truncate",
+                    ".toWhole",
+                    ".fillCell",
+                )
+            )
+            and name.rsplit(".", 1)[0] in {"l_zen", "zen"}
+        ):
+            self.approximations.add("library.zen.trade_statistics_compat")
+            member = name.rsplit(".", 1)[1]
+            trades = self.broker.trades
+            if member == "tradeCount":
+                return len(trades)
+            if member == "fillCell":
+                return None
+            long_trades = [trade for trade in trades if trade.side == "long"]
+            short_trades = [trade for trade in trades if trade.side == "short"]
+            if member == "longWinPercent":
+                return (
+                    100 * sum(trade.pnl > 0 for trade in long_trades) / len(long_trades)
+                    if long_trades
+                    else 0.0
+                )
+            if member == "shortWinPercent":
+                return (
+                    100 * sum(trade.pnl > 0 for trade in short_trades) / len(short_trades)
+                    if short_trades
+                    else 0.0
+                )
+            if member in {"breakEvenCount", "breakEvenPercent"}:
+                allowance = abs(self._number(arguments[0])) if arguments else 0.0
+                count = sum(
+                    abs(trade.exit_price - trade.entry_price) <= allowance * 0.01
+                    for trade in trades
+                )
+                return (
+                    count
+                    if member == "breakEvenCount"
+                    else (100 * count / len(trades) if trades else 0.0)
+                )
+            if member == "maxDrawdownRealized":
+                equity = self.initial_cash
+                peak = equity
+                drawdown = 0.0
+                for trade in trades:
+                    equity += trade.pnl
+                    peak = max(peak, equity)
+                    drawdown = max(drawdown, 100 * (peak - equity) / peak)
+                return drawdown
+            if member == "totalPipReturn":
+                return sum(
+                    (trade.exit_price - trade.entry_price)
+                    * (1 if trade.side == "long" else -1)
+                    for trade in trades
+                ) * 10
+            if member == "truncate":
+                decimals = int(self._number(arguments[1])) if len(arguments) > 1 else 2
+                factor = 10**decimals
+                return int(self._number(arguments[0]) * factor) / factor
+            if member == "toWhole":
+                return self._number(arguments[0]) / 0.1
+        if name.endswith(".averageRR") and name.rsplit(".", 1)[0] in {"l_zen", "zen"}:
+            winners = [trade.pnl for trade in self.broker.trades if trade.pnl > 0]
+            losers = [trade.pnl for trade in self.broker.trades if trade.pnl < 0]
+            if not winners or not losers:
+                return None
+            self.approximations.add("library.zen.average_rr_compat")
+            return (sum(winners) / len(winners)) / abs(sum(losers) / len(losers))
+        if name.endswith(".getPositionSize") and name.rsplit(".", 1)[0] in {"l_zen", "zen"}:
+            if (
+                len(arguments) < 2
+                or self.current_candle is None
+                or self._contains_missing(arguments[0])
+                or self._contains_missing(arguments[1])
+            ):
+                return 0.0
+            risk = self._number(arguments[0])
+            stop_delta = abs(self._number(arguments[1]))
+            balance = (
+                self._number(arguments[2])
+                if len(arguments) > 2 and arguments[2] is not None
+                else self.broker.equity(self.current_candle.close)
+            )
+            step = (
+                self._number(arguments[6])
+                if len(arguments) > 6 and arguments[6] is not None
+                else 0.001
+            )
+            if stop_delta <= 0 or step <= 0 or balance <= 0:
+                return 0.0
+            self.approximations.add("library.zen.position_size_same_currency")
+            return math.floor((balance * risk / 100.0) / stop_delta / step) * step
         if name.endswith(".getPullbackBarCount") and name.rsplit(".", 1)[0] in {"l_zen", "zen"}:
             if len(arguments) < 2:
                 return None
