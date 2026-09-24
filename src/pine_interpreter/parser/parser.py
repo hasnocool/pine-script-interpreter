@@ -1159,7 +1159,11 @@ class Parser:
                     TokenType.ELSE,
                     TokenType.FAT_ARROW,
                 }:
-                    self._index = next_index
+                    # Consume only the dedent that balances the case block's
+                    # own INDENT above.  Any further dedents close enclosing
+                    # blocks; swallowing them here would let the statement
+                    # after the switch escape to an outer level.
+                    self._advance()
                 else:
                     self._advance()
                 return tuple(statements)
@@ -1527,7 +1531,12 @@ class Parser:
                 ):
                     self._index = next_index
                     continue
-                self._index = next_index
+                # This dedent closes the case block whose INDENT this function
+                # consumed, so balance it here and stop.  Any further dedents
+                # belong to enclosing blocks and must stay in the budget;
+                # consuming them would let the statement after the switch
+                # escape to an outer level.
+                self._advance()
                 return tuple(cases)
             if case_column is None:
                 case_column = self._current.location.column

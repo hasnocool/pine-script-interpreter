@@ -346,3 +346,41 @@ def test_parser_pairs_an_else_across_space_and_tab_indentation() -> None:
     after = program.statements[1]
     assert isinstance(after, VariableDeclaration)
     assert after.name == "after"
+
+
+def test_parser_keeps_a_statement_after_a_switch_inside_its_block() -> None:
+    # The switch case block's dedent also ends the enclosing block unless the
+    # switch parser balances only its own indent.  When it swallowed the extra
+    # dedents the following `if` escaped to the top level, so variables the
+    # switch assigned were no longer in scope.
+    program = parse(
+        """
+for index = 0 to 3
+    state = "armed"
+    remove = false
+    switch state
+        "armed" =>
+            if close > open
+                remove := true
+            else
+                remove := true
+        "idle" =>
+            if volume > 0
+                remove := true
+    if remove
+        closeAll := true
+"""
+    )
+
+    assert len(program.statements) == 1
+    loop = program.statements[0]
+    assert isinstance(loop, ForStatement)
+    assert [type(statement).__name__ for statement in loop.body] == [
+        "VariableDeclaration",
+        "VariableDeclaration",
+        "SwitchStatement",
+        "IfStatement",
+    ]
+    trailing = loop.body[-1]
+    assert isinstance(trailing, IfStatement)
+    assert isinstance(trailing.then_branch[0], AssignmentStatement)
