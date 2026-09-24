@@ -4,14 +4,14 @@
 
 This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1h candles. It is intended to establish a broad technical baseline, not to certify strategies as profitable or safe.
 
-- **Run time:** 11m 7s
+- **Run time:** 32m 29s
 - **Runtime version:** `0.3.1`
 - **Strategies attempted:** 6,081
-- **Produced completed trades:** 1,953
-- **Ran without completed orders:** 3,814
-- **Could not be evaluated:** 314
+- **Produced completed trades:** 1,958
+- **Ran without completed orders:** 3,815
+- **Could not be evaluated:** 308
 - **Saved partial interrupted results:** 121
-- **Used an explicit approximation:** 3,717
+- **Used an explicit approximation:** 3,724
 - **Used a local Pine library:** 39
 - **Duplicate source groups:** 0
 - **Detailed shortlist:** See the companion `top-100-strategies.md` report.
@@ -23,9 +23,9 @@ This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1
 
 | Outcome | Count | What it means |
 | --- | ---: | --- |
-| Backtested with trades | 1,953 | The runtime ran and closed at least one trade. |
-| No orders | 3,814 | The runtime ran but did not close a trade on this data. |
-| Validation errors | 193 | The current runtime could not evaluate part of the strategy. |
+| Backtested with trades | 1,958 | The runtime ran and closed at least one trade. |
+| No orders | 3,815 | The runtime ran but did not close a trade on this data. |
+| Validation errors | 187 | The current runtime could not evaluate part of the strategy. |
 | Execution-limit stops | 121 | The strategy exceeded the safety step budget. |
 | Wall-clock timeout stops | 0 | The strategy exceeded the wall-clock budget; a partial snapshot may be saved. |
 | Runtime errors | 0 | An unexpected runtime problem stopped the strategy. |
@@ -33,9 +33,9 @@ This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1
 
 ## Performance snapshot
 
-- **561** strategies with trades finished positive; **899** finished negative; **493** were approximately flat.
-- The median return among trade-producing strategies was **0.00%**; the average was **1233790.36%**.
-- The median maximum drawdown was **1.80%**.
+- **561** strategies with trades finished positive; **900** finished negative; **497** were approximately flat.
+- The median return among trade-producing strategies was **0.00%**; the average was **1230639.72%**.
+- The median maximum drawdown was **1.81%**.
 - The strongest eligible result was **Pump Smart Shorting Strategy\_\_rvIzBoho** at **2477665495.26%**.
 - The weakest trade-producing result was **4H CCI Strategy 1.4\_\_27DWrT5B** at **-29430038.20%**.
 
@@ -62,18 +62,18 @@ These are the most common reasons a strategy could not be evaluated. They descri
 
 | Blocker | Strategies | Share of recorded errors |
 | --- | ---: | ---: |
-| Runaway loop or excessive runtime steps | 121 | 38.54% |
-| imported Pine library was not found | 87 | 27.71% |
-| Required numeric value was unavailable | 42 | 13.38% |
-| unknown Pine builtin | 24 | 7.64% |
-| Unknown Pine identifier or constant | 16 | 5.10% |
-| unknown strategy member | 4 | 1.27% |
-| numeric result is out of range | 3 | 0.96% |
-| long stop must be below limit | 2 | 0.64% |
+| Runaway loop or excessive runtime steps | 121 | 39.29% |
+| imported Pine library was not found | 87 | 28.25% |
+| Required numeric value was unavailable | 41 | 13.31% |
+| unknown Pine builtin | 21 | 6.82% |
+| Unknown Pine identifier or constant | 16 | 5.19% |
+| unknown strategy member | 4 | 1.30% |
+| long stop must be below limit | 2 | 0.65% |
+| Unsupported call target | 2 | 0.65% |
 | Chart timeframe must be BELOW the signal timeframe. Recommended | 1 | 0.32% |
 | This script only works on the daily timeframe (D). | 1 | 0.32% |
-| Unsupported call target | 1 | 0.32% |
 | 🚫 LANZ Strategy 1.0 is only available on the 1h timeframe. | 1 | 0.32% |
+| 🚫 LANZ Strategy 6.0 is only available on the 1-hour timeframe. | 1 | 0.32% |
 
 ## Interrupted-run snapshots
 
@@ -98,16 +98,16 @@ These wall-clock measurements are profiling signals, not performance results.
 
 | Strategy | Status | Elapsed | Execution steps | Partial bars | Partial trades |
 | --- | --- | ---: | ---: | ---: | ---: |
-| trend Screener downtrend__4BFsvEy2 | no_orders | 18.903s | 163740 | n/a | n/a |
-| trend Screener List1__7vCW7aKc | no_orders | 18.639s | 163660 | n/a | n/a |
-| APEX Tester Buy Sell Strategies Basic BACKTESTER__hRcO3u2d | execution_limit | 15.743s | 250001 | 135 | 0 |
-| RSI Overbought Oversold Divergence Strategy w Buy Sell Signals__d92hvFQx | execution_limit | 13.778s | 250001 | 390 | 0 |
-| Smooth Moving Average Ribbon [STRATEGY] @PuppyTherapy__x9Qk7yMI | execution_limit | 12.814s | 250001 | 105 | 0 |
-| Smooth Moving Average [STRATEGY] @PuppyTherapy__nSjqOv9m | execution_limit | 12.528s | 250001 | 251 | 0 |
-| CleanTradeQuantum v7.2 OB FVG INTEGRATED__JeRCEqWU | execution_limit | 10.295s | 250001 | 442 | 0 |
-| FlyTV a real fruit fly connectome trading on your chart__nmnHkA02 | execution_limit | 9.526s | 250001 | 4 | 0 |
-| Oscillating Market Case Study__N9bH0tbl | execution_limit | 9.335s | 250001 | 391 | 1 |
-| Trend Vanguard Strategy__HhSwguVI | execution_limit | 9.158s | 250001 | 204 | 5 |
+| trend Screener List1__7vCW7aKc | no_orders | 15.991s | 163660 | n/a | n/a |
+| trend Screener downtrend__4BFsvEy2 | no_orders | 14.448s | 163740 | n/a | n/a |
+| Smooth Moving Average Ribbon [STRATEGY] @PuppyTherapy__x9Qk7yMI | execution_limit | 11.394s | 250001 | 105 | 0 |
+| Smooth Moving Average [STRATEGY] @PuppyTherapy__nSjqOv9m | execution_limit | 10.342s | 250001 | 251 | 0 |
+| CleanTradeQuantum v7.2 OB FVG INTEGRATED__JeRCEqWU | execution_limit | 9.346s | 250001 | 442 | 0 |
+| RSI Overbought Oversold Divergence Strategy w Buy Sell Signals__d92hvFQx | execution_limit | 9.073s | 250001 | 390 | 0 |
+| Oscillating Market Case Study__N9bH0tbl | execution_limit | 8.775s | 250001 | 391 | 1 |
+| APEX Tester Buy Sell Strategies Basic BACKTESTER__hRcO3u2d | execution_limit | 8.769s | 250001 | 135 | 0 |
+| MASU+ v8.2 (DC+NW+ELM+VIX) [1H]__eEMttmMz | execution_limit | 8.534s | 250001 | 104 | 0 |
+| Adaptive Dual Engine Strategy Momentum + Mean Reversion [BT]__f9xLZqpF | backtested | 7.733s | 236984 | n/a | n/a |
 
 ## Important interpretation notes
 

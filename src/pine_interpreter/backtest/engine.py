@@ -1636,6 +1636,18 @@ class _PineRuntime:
                 keywords[argument.name or ""] = self._evaluate(argument.value, values)
             else:
                 arguments.append(self._evaluate(argument, values))
+        if isinstance(expression.callee, MemberExpression):
+            try:
+                receiver = self._evaluate(expression.callee.object, values)
+            except BacktestValidationError:
+                receiver = None
+            if isinstance(receiver, list) and expression.callee.property in {
+                "remove", "insert", "get", "set", "push", "pop", "shift", "unshift",
+                "clear", "sort", "copy", "sum", "min", "max", "avg", "size",
+            }:
+                return self._array_call(
+                    expression.callee.property, [receiver, *arguments], keywords
+                )
         callee = self._callee_name(expression.callee)
         if callee is None:
             dynamic_callee = self._dynamic_callee(expression.callee, values)
@@ -2430,8 +2442,11 @@ class _PineRuntime:
         if name == "pow" and len(numbers) > 1:
             try:
                 return numbers[0] ** numbers[1]
-            except (OverflowError, ValueError) as exc:
-                raise BacktestValidationError("numeric result is out of range") from exc
+            except OverflowError:
+                self.approximations.add("math.pow.saturated_na")
+                return None
+            except ValueError:
+                return None
         return value
 
     def _new_drawing_handle(
@@ -2710,9 +2725,14 @@ class _PineRuntime:
             arguments[0].clear()
             return arguments[0]
         if name == "sort" and arguments and isinstance(arguments[0], list):
+            if any(self._contains_missing(value) for value in arguments[0]):
+                self.approximations.add("array.sort_na_preserved")
+                return arguments[0]
             arguments[0].sort(key=lambda value: self._number(value))
             return arguments[0]
         if name == "remove" and len(arguments) >= 2 and isinstance(arguments[0], list):
+            if self._contains_missing(arguments[1]):
+                return arguments[0]
             index = int(self._number(arguments[1]))
             return (
                 arguments[0].pop(index)
@@ -2726,6 +2746,8 @@ class _PineRuntime:
         ):
             return [*arguments[0], *arguments[1]]
         if name == "insert" and len(arguments) >= 3 and isinstance(arguments[0], list):
+            if self._contains_missing(arguments[1]):
+                return arguments[0]
             index = int(self._number(arguments[1]))
             if -len(arguments[0]) <= index <= len(arguments[0]):
                 arguments[0].insert(index, arguments[2])
@@ -2740,6 +2762,8 @@ class _PineRuntime:
                 return []
         if name in {"binary_search_leftmost", "binary_search_rightmost"} and len(arguments) >= 2:
             target = arguments[0]
+            if self._contains_missing(arguments[1]):
+                return None
             needle = self._number(arguments[1])
             if not isinstance(target, list):
                 return None
