@@ -534,12 +534,26 @@ class _PineRuntime:
         if source_path is None:
             # Archive library names can include a publisher suffix such as
             # ``Name__hash``.  Match the stem exactly before giving up.
-            requested_stem = Path(import_name).name.casefold()
+            import_parts = Path(import_name).parts
+            requested_name = (
+                import_parts[-2]
+                if len(import_parts) >= 2 and import_parts[-1].isdigit()
+                else import_parts[-1]
+            )
+            requested_stem = requested_name.casefold()
             matches = sorted(
                 candidate
                 for candidate in self.library_root.rglob("*.pine")
                 if candidate.stem.casefold() == requested_stem
             )
+            if not matches:
+                matches = sorted(
+                    candidate
+                    for candidate in self.library_root.rglob("*.pine")
+                    if candidate.stem.split("__", 1)[0].casefold() == requested_stem
+                )
+                if matches:
+                    self.approximations.add(f"library.{import_name}.local_title_fallback")
             source_path = matches[0] if matches else None
         if source_path is None:
             if import_name.startswith(("TradingView/ta/", "TradingView/Strategy/")):
