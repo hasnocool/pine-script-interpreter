@@ -3411,13 +3411,13 @@ class _PineRuntime:
                 return None
             return self._number(current) - self._number(previous)
         if name in {"linreg", "linreg_scalar"} and len(arguments) >= 2:
-            series = [
-                self._number(value)
-                for value in self._series_values_for_value(
-                    arguments[0], values, argument_nodes[0] if argument_nodes else None
-                )
-                if value is not None
-            ]
+            source_values = self._series_values_for_value(
+                arguments[0], values, argument_nodes[0] if argument_nodes else None
+            )
+            if any(isinstance(value, (list, tuple)) for value in source_values):
+                self.approximations.add("ta.linreg_tuple_input_na")
+                return None
+            series = [self._number(value) for value in source_values if value is not None]
             length = int(self._number(arguments[1]))
             if length <= 0 or len(series) < length:
                 return None
