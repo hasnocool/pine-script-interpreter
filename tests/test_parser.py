@@ -311,3 +311,38 @@ grade(value) =>
     assert isinstance(chained, IfStatement)
     assert chained.else_branch is not None
     assert isinstance(chained.else_branch[0], AssignmentStatement)
+
+
+def test_parser_pairs_an_else_across_space_and_tab_indentation() -> None:
+    # The archive mixes four-space and tab indentation inside the same `else`
+    # ladder.  Both indent to the same visual column, so the `else` still
+    # belongs to the space-indented `if` it follows.
+    program = parse(
+        "ma(smoothing) =>\n"
+        '    if smoothing == "RMA"\n'
+        "        rma()\n"
+        "    else\n"
+        '        if smoothing == "SMA"\n'
+        "            sma()\n"
+        "\t\telse\n"
+        '\t\t\tif smoothing == "EMA"\n'
+        "\t\t\t\tema()\n"
+        "after = 1\n"
+    )
+
+    assert len(program.statements) == 2
+    function = program.statements[0]
+    assert isinstance(function, FunctionDeclaration)
+    assert function.name == "ma"
+    branch = function.body[0]
+    assert isinstance(branch, IfStatement)
+    assert branch.else_branch is not None
+    chained = branch.else_branch[0]
+    assert isinstance(chained, IfStatement)
+    assert chained.else_branch is not None
+    innermost = chained.else_branch[0]
+    assert isinstance(innermost, IfStatement)
+    assert not innermost.else_branch
+    after = program.statements[1]
+    assert isinstance(after, VariableDeclaration)
+    assert after.name == "after"

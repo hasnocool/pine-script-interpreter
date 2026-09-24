@@ -80,3 +80,19 @@ def test_lexer_handles_operator_leading_wrapping_and_realigned_ternaries() -> No
     tokens = Lexer("value = condition ? first :\n  second\n").tokenize()
     assert TokenType.INDENT not in [token.kind for token in tokens]
     assert TokenType.DEDENT not in [token.kind for token in tokens]
+
+
+def test_lexer_reports_the_visual_column_for_tabs() -> None:
+    # A tab advances the visual column by four, matching the indent width the
+    # lexer uses for the indent stack.  Otherwise a tab-indented `else` reports
+    # a much smaller column than the space-indented `if` it belongs to.
+    source = "if ready\n    if armed\n        hit = true\n\telse\n\t\tmiss = true\n"
+    columns = {
+        (token.location.line, token.value): token.location.column
+        for token in Lexer(source).tokenize()
+        if token.value in {"if", "else", "miss"}
+    }
+    assert columns[(1, "if")] == 1
+    assert columns[(2, "if")] == 5
+    assert columns[(4, "else")] == columns[(2, "if")]
+    assert columns[(5, "miss")] == 9

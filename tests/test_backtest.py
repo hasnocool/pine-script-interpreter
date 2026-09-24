@@ -1030,6 +1030,36 @@ def test_drawing_handles_keep_nonessential_methods_explicitly_approximated() -> 
     assert "drawing.handles" in report.approximations
 
 
+def test_drawing_copies_are_independent_handles() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("drawing copy", overlay=true)
+        base = line.new(0, 1, 2, 3)
+        clone = line.copy(base)
+        clone.set_color(color.red)
+        clone.set_width(2)
+        tall = box.copy(box.new(0, 5, 1, 6))
+        tall.set_extend(extend.none)
+        note = label.copy(label.new(0, 0, "original"))
+        note.set_text("changed")
+        if bar_index == 0
+            slope = clone.get_y2() - clone.get_y1()
+            if slope == 2 and tall.get_left() == 0 and note.get_text() == "changed"
+                strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102]),
+    )
+
+    assert len(report) == 1
+    assert report.trades
+
+
 def test_nontrading_builtins_are_explicitly_approximated() -> None:
     source = dedent(
         """

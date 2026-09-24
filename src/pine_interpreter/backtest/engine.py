@@ -2348,6 +2348,17 @@ class _PineRuntime:
                 return self._heikinashi_values()
             if drawing_member == "new":
                 return self._new_drawing_handle(drawing_namespace, arguments, keywords)
+            if drawing_member == "copy" and drawing_namespace in {
+                "line",
+                "label",
+                "box",
+                "polyline",
+            }:
+                source = arguments[0] if arguments else None
+                if isinstance(source, dict) and _DRAWING_HANDLE_KEY in source:
+                    # A copy is an independent drawing with the same geometry.
+                    return dict(source)
+                return None
             if drawing_member.startswith(("style_", "location_")):
                 return drawing_member
             return None

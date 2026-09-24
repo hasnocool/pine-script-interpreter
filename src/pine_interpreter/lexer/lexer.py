@@ -235,6 +235,13 @@ class Lexer:
         elif character == "\r" and self._peek() != "\n":
             self._line += 1
             self._column = 1
+        elif character == "\t":
+            # A tab advances the visual column by four so the reported column
+            # matches the indent width `_read_indentation` computes.  Mixing
+            # tabs and spaces otherwise makes indentation-sensitive parser
+            # decisions (e.g. which `if` an `else` belongs to) disagree with
+            # the indent stack.
+            self._column += 4
         else:
             self._column += 1
         return character
