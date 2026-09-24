@@ -1030,6 +1030,36 @@ def test_drawing_handles_keep_nonessential_methods_explicitly_approximated() -> 
     assert "drawing.handles" in report.approximations
 
 
+def test_a_zero_or_negative_exit_quantity_is_a_no_op() -> None:
+    # Computed partial exits such as `qty = position_size - first_slice` reach
+    # zero while flat.  Pine treats that as "nothing to exit" rather than an
+    # error, and a later real exit must still fill the whole position.
+    source = dedent(
+        """
+        //@version=6
+        strategy("partial exit", overlay=true)
+        var float held = na
+        if bar_index == 0
+            strategy.entry("Long", strategy.long, qty=2)
+            held := 2
+        if bar_index == 1
+            first = math.abs(held) * 0.5
+            rest = held - first
+            strategy.exit("Half", "Long", qty=first, limit=95)
+            strategy.exit("Rest", "Long", qty=rest, limit=90)
+        if bar_index == 2
+            strategy.exit("Nothing", "Long", qty=held - 2, limit=1)
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 100, 96, 90]),
+    )
+
+    # The `held - 2` exit is a no-op; the two computed slices still fill.
+    assert [trade.quantity for trade in report.trades] == [1.0, 1.0]
+
+
 def test_a_parameter_does_not_share_series_history_with_a_global() -> None:
     # Series history is keyed by identifier name.  Without a per-function scope
     # a parameter called `source` read back the global `source` series, so a

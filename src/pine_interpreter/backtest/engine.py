@@ -302,11 +302,19 @@ class _Broker:
         if self.position is None:
             return None
         position = self.position
-        requested = position.quantity if quantity is None else self._positive_quantity(quantity)
-        if requested > position.quantity + 1e-9:
-            raise BacktestValidationError("partial exit quantity exceeds the open position")
+        if quantity is None:
+            requested = position.quantity
+        else:
+            # Pine treats a zero or negative exit quantity as "nothing to
+            # exit" rather than an error, which computed partial exits such as
+            # `qty = position_size - first_slice` depend on.
+            requested = float(quantity)
+            if not math.isfinite(requested):
+                return None
         if requested <= 0:
             return None
+        if requested > position.quantity + 1e-9:
+            raise BacktestValidationError("partial exit quantity exceeds the open position")
         fraction = requested / position.quantity
         fill = self._fill_price(price, position.side)
         exit_fee = requested * abs(fill) * self.config.fee_rate + self.config.commission_per_trade
@@ -345,12 +353,6 @@ class _Broker:
                 position.entries_count,
             )
         return trade
-
-    @staticmethod
-    def _positive_quantity(quantity: float) -> float:
-        if not math.isfinite(quantity) or quantity <= 0:
-            raise BacktestValidationError("order quantity must be positive and finite")
-        return quantity
 
     def close(
         self,
