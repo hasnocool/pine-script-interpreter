@@ -12,6 +12,7 @@ the entire TradingView API.
 from __future__ import annotations
 
 import math
+import sys
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -932,7 +933,18 @@ class _PineRuntime:
             self.history.setdefault(statement.name, [])
             return value
         if isinstance(statement, AssignmentStatement):
-            value = self._evaluate(statement.value, values)
+            if statement.operator in {"=", ":="}:
+                value = self._evaluate(statement.value, values)
+            else:
+                value = self._evaluate(
+                    BinaryExpression(
+                        statement.location,
+                        statement.target,
+                        statement.operator[:-1],
+                        statement.value,
+                    ),
+                    values,
+                )
             self._assign(statement.target, value, values)
             return value
         if isinstance(statement, TupleDeclaration):
@@ -1009,12 +1021,42 @@ class _PineRuntime:
         body: Sequence[Statement],
         values: dict[str, Any],
     ) -> Any:
-        start = int(self._number(self._evaluate(start_expression, values)))
-        end = int(self._number(self._evaluate(end_expression, values))) if end_expression else None
-        step = int(self._number(self._evaluate(step_expression, values))) if step_expression else 1
+        result: Any = None
+        start_value = self._evaluate(start_expression, values)
+        if end_expression is None and isinstance(start_value, (list, tuple, str, dict)):
+            iterable: Iterable[Any] = (
+                start_value.keys() if isinstance(start_value, dict) else start_value
+            )
+            for item in iterable:
+                self._consume_execution_step()
+                if isinstance(variable, str):
+                    values[variable] = item
+                elif isinstance(item, (list, tuple)):
+                    for target, element in zip(variable, item, strict=False):
+                        self._assign(target, element, values)
+                else:
+                    self._assign(variable[0], item, values)
+                try:
+                    result = self._execute_statements(body, values)
+                except _Break:
+                    break
+                except _Continue:
+                    pass
+            return result
+        end_value = self._evaluate(end_expression, values) if end_expression else _MISSING
+        step_value = self._evaluate(step_expression, values) if step_expression else 1
+        if (
+            end_expression is None
+            or self._contains_missing(start_value)
+            or self._contains_missing(end_value)
+            or self._contains_missing(step_value)
+        ):
+            return None
+        start = int(self._number(start_value))
+        end = int(self._number(end_value))
+        step = int(self._number(step_value))
         if step == 0:
             raise BacktestValidationError("for-loop step cannot be zero")
-        result: Any = None
         current = start
         while end is None or (current < end if step > 0 else current > end):
             self._consume_execution_step()
@@ -1154,7 +1196,6 @@ class _PineRuntime:
             if expression.name in {
                 "splits",
                 "font",
-                "pvt",
                 "accdist",
                 "nvi",
                 "ma_up",
@@ -1163,6 +1204,8 @@ class _PineRuntime:
             }:
                 self.approximations.add("legacy.identifier_zero")
                 return 0.0
+            if expression.name == "pvt":
+                return self._current_pvt()
             if expression.name == "percentRank":
                 self.approximations.add("legacy.percent_rank")
                 return 50.0
@@ -1222,6 +1265,8 @@ class _PineRuntime:
             return self._member(expression, values)
         if isinstance(expression, HistoryExpression):
             offset_expression = self._evaluate(expression.offset, values)
+            if self._contains_missing(offset_expression):
+                return None
             offset = int(self._number(offset_expression))
             if offset < 0:
                 self.approximations.add("history.negative_offset_current")
@@ -1255,6 +1300,8 @@ class _PineRuntime:
 
     def _unary(self, expression: UnaryExpression, values: dict[str, Any]) -> Any:
         value = self._evaluate(expression.operand, values)
+        if expression.operator == "not":
+            return not self._truthy(value)
         if value is None:
             return None
         if expression.operator == "+":
@@ -1349,8 +1396,13 @@ class _PineRuntime:
                 ">": left_number > right_number,
                 ">=": left_number >= right_number,
             }[expression.operator]
-        if expression.operator == "+" and isinstance(left, str) and isinstance(right, str):
-            return left + right
+        if expression.operator == "+" and (
+            isinstance(left, str) or isinstance(right, str)
+        ):
+            if left is None or right is None:
+                return None
+            if isinstance(left, str) and isinstance(right, str):
+                return left + right
         left_number = self._number(left)
         right_number = self._number(right)
         if expression.operator == "+":
@@ -1379,6 +1431,8 @@ class _PineRuntime:
             if name == "ta":
                 if expression.property in {"tr", "vwap", "obv"}:
                     return self._ta_call(expression.property, (), (), values, expression)
+                if expression.property == "pvt":
+                    return self._current_pvt()
                 if expression.property == "dmi":
                     return [None, None, None]
                 return expression.property
@@ -1443,6 +1497,15 @@ class _PineRuntime:
                     == self.values.get("last_bar_index", -1),
                 }.get(expression.property)
             if name == "session":
+                if expression.property in {"isfirstbar", "islastbar"}:
+                    self.approximations.add("session.bounds")
+                    timestamp = self.current_candle.timestamp if self.current_candle else None
+                    return bool(
+                        expression.property == "isfirstbar"
+                        and timestamp is not None
+                        and timestamp.hour == 0
+                        and timestamp.minute == 0
+                    )
                 return expression.property
             if name == "dayofweek":
                 return {
@@ -1737,6 +1800,7 @@ class _PineRuntime:
         if name in {
             "indicator",
             "strategy",
+            "study",
             "plot",
             "plotshape",
             "plotchar",
@@ -1803,6 +1867,10 @@ class _PineRuntime:
         }:
             alias = {"dev": "stdev", "bb": "bb", "mom": "momentum"}.get(name, name)
             return self._ta_call(alias, arguments, argument_nodes, values, node)
+        if name == "stoch":
+            return self._ta_call("stoch_scalar", arguments, argument_nodes, values, node)
+        if name == "linreg":
+            return self._ta_call("linreg_scalar", arguments, argument_nodes, values, node)
         if name in {
             "sma",
             "ema",
@@ -1819,6 +1887,7 @@ class _PineRuntime:
             "cmo",
             "macd",
             "stoch",
+            "bbw",
             "bbands",
             "kc",
             "donchian",
@@ -1889,8 +1958,10 @@ class _PineRuntime:
             return self._string_call("tostring", arguments)
         if name == "dayofweek":
             return self._time_call("weekday", arguments)
-        if name in {"heikinashi", "ha"}:
-            self.approximations.add("heikinashi.ohlc")
+        if name == "pvt":
+            return self._current_pvt()
+        if name in {"heikenashi", "heikinashi", "ha"}:
+            self.approximations.add("heikenashi.ohlc")
             return self._heikinashi_values()
         if name in {"rising", "falling"} and len(arguments) >= 2:
             return self._rising_falling(name, arguments, argument_nodes, values)
@@ -1914,7 +1985,7 @@ class _PineRuntime:
                 return drawing_member
             return None
         if name == "na":
-            return arguments[0] if arguments else None
+            return not arguments or self._contains_missing(arguments[0])
         if name == "nz":
             return (
                 arguments[0]
@@ -1973,6 +2044,7 @@ class _PineRuntime:
                     "macd",
                     "stoch",
                     "bb",
+                    "bbw",
                     "bbands",
                     "kc",
                     "donchian",
@@ -2008,6 +2080,14 @@ class _PineRuntime:
                 if member == "calcPositionSizeByStopLossTicks":
                     return self._entry_quantity([], {})
                 return None
+        if name.startswith(
+            ("fpData.", "fp.", "pocRow.", "vahRow.", "valRow.", "deltaRow.", "volRow.")
+        ):
+            self.approximations.add("footprint.zero")
+            return 0.0
+        if name == "Strategy.closeAllAtEndOfSession":
+            self.approximations.add("nontrading.close_at_session_end")
+            return None
         if name.startswith("strategy.closedtrades."):
             suffix = name[len("strategy.closedtrades.") :]
             index = int(self._number(arguments[0])) if arguments else 0
@@ -2068,7 +2148,7 @@ class _PineRuntime:
                 )
             return self.input_cache[key]
         if name.startswith("array."):
-            return self._array_call(name[6:], arguments)
+            return self._array_call(name[6:], arguments, keywords)
         if name.startswith("matrix."):
             self.approximations.add("matrix.approximation")
             member = name[7:]
@@ -2114,6 +2194,8 @@ class _PineRuntime:
             "request.financial",
             "request.dividends",
             "request.earnings",
+            "request.economic",
+            "request.splits",
             "request.quandl",
         }:
             self.approximations.add(name)
@@ -2164,6 +2246,7 @@ class _PineRuntime:
         if name in {
             "earnings",
             "dividends",
+            "splits",
             "weekofyear",
             "pointfigure",
             "linebreak",
@@ -2182,6 +2265,26 @@ class _PineRuntime:
         if name == "font":
             self.approximations.add("nontrading.font")
             return arguments[0] if arguments else None
+        if name == "tonumber":
+            if not arguments or arguments[0] is None:
+                return None
+            value = arguments[0]
+            if isinstance(value, (int, float)):
+                return self._number(value)
+            text = str(value).strip()
+            try:
+                return float(text)
+            except ValueError:
+                number = ""
+                for character in text:
+                    if character.isdigit() or character == ".":
+                        number += character
+                    else:
+                        break
+                if not number:
+                    return None
+                self.approximations.add("tonumber.timeframe")
+                return float(number)
         if name == "abs":
             return self._math_call("abs", arguments)
         if name in {"max", "min", "round", "floor", "ceil", "sqrt", "pow", "avg"}:
@@ -2292,7 +2395,11 @@ class _PineRuntime:
         if name == "log10":
             return math.log10(value) if value > 0 else None
         if name == "exp":
-            return math.exp(value)
+            try:
+                return math.exp(value)
+            except OverflowError:
+                self.approximations.add("math.exp.saturated")
+                return sys.float_info.max
         if name == "sqrt":
             return math.sqrt(value) if value >= 0 else None
         if name == "sin":
@@ -2521,10 +2628,44 @@ class _PineRuntime:
     def _string_key(value: Any) -> str:
         return str(value)
 
-    def _array_call(self, name: str, arguments: Sequence[Any]) -> Any:
-        if name in {"new", "new_float", "new_int", "new_string", "new_bool", "new_line"}:
+    def _array_call(
+        self,
+        name: str,
+        arguments: Sequence[Any],
+        keywords: Mapping[str, Any] | None = None,
+    ) -> Any:
+        args = list(arguments)
+        named = dict(keywords or {})
+        if "id" in named:
+            args.insert(0, named.pop("id"))
+        if "size" in named and not args:
+            args.append(named.pop("size"))
+        if "initial_value" in named and len(args) < 2:
+            args.append(named.pop("initial_value"))
+        for key in ("index", "value", "order"):
+            if key in named:
+                args.append(named.pop(key))
+        arguments = args
+        if name in {
+            "new",
+            "new_float",
+            "new_int",
+            "new_string",
+            "new_bool",
+            "new_line",
+            "new_color",
+            "new_box",
+            "new_label",
+            "new_linefill",
+            "new_table",
+        }:
+            if arguments and arguments[0] is None:
+                self.approximations.add("array.na_constructor_empty")
+                return []
             size = int(self._number(arguments[0])) if arguments else 0
-            value = arguments[1] if len(arguments) > 1 else (0.0 if name != "new_string" else "")
+            value = arguments[1] if len(arguments) > 1 else (
+                "" if name == "new_string" else 0.0
+            )
             return [value] * max(0, size)
         if name == "from":
             return (
@@ -2578,6 +2719,34 @@ class _PineRuntime:
                 if -len(arguments[0]) <= index < len(arguments[0])
                 else None
             )
+        if name == "copy" and arguments and isinstance(arguments[0], list):
+            return list(arguments[0])
+        if name == "concat" and len(arguments) >= 2 and all(
+            isinstance(value, list) for value in arguments[:2]
+        ):
+            return [*arguments[0], *arguments[1]]
+        if name == "insert" and len(arguments) >= 3 and isinstance(arguments[0], list):
+            index = int(self._number(arguments[1]))
+            if -len(arguments[0]) <= index <= len(arguments[0]):
+                arguments[0].insert(index, arguments[2])
+            return arguments[0]
+        if name == "sort_indices" and arguments and isinstance(arguments[0], list):
+            try:
+                return sorted(
+                    range(len(arguments[0])),
+                    key=lambda index: self._number(arguments[0][index]),
+                )
+            except BacktestValidationError:
+                return []
+        if name in {"binary_search_leftmost", "binary_search_rightmost"} and len(arguments) >= 2:
+            target = arguments[0]
+            needle = self._number(arguments[1])
+            if not isinstance(target, list):
+                return None
+            indices = [index for index, value in enumerate(target) if self._number(value) >= needle]
+            if name.endswith("leftmost"):
+                return indices[0] if indices else None
+            return indices[-1] if indices else None
         if name == "size" and arguments:
             return len(arguments[0]) if isinstance(arguments[0], (list, tuple, str, dict)) else None
         if name == "get" and len(arguments) > 1:
@@ -2689,6 +2858,8 @@ class _PineRuntime:
             )
             return value[start:end]
         if name == "repeat" and len(arguments) > 1:
+            if arguments[1] is None:
+                return None
             return value * max(0, int(self._number(arguments[1])))
         if name == "reverse":
             return value[::-1]
@@ -2762,6 +2933,21 @@ class _PineRuntime:
             total += self._number(volumes[index]) * (
                 1 if close_delta > 0 else -1 if close_delta < 0 else 0
             )
+        return total
+
+    def _current_pvt(self) -> float:
+        closes = self._ohlcv_series("close")
+        volumes = self._ohlcv_series("volume")
+        total = 0.0
+        for index in range(1, len(closes)):
+            previous = closes[index - 1]
+            close = closes[index]
+            volume = volumes[index]
+            if previous in (None, 0) or close is None or volume is None:
+                continue
+            total += self._number(volume) * (
+                self._number(close) - self._number(previous)
+            ) / self._number(previous)
         return total
 
     def _ta_call(
@@ -2840,6 +3026,7 @@ class _PineRuntime:
             "macd",
             "stoch",
             "bb",
+            "bbw",
             "bbands",
             "kc",
             "donchian",
@@ -3053,11 +3240,12 @@ class _PineRuntime:
             return total
         if name == "vwap":
             return self._current_vwap()
-        if name == "stoch" and len(arguments) >= 4:
+        if name in {"stoch", "stoch_scalar"} and len(arguments) >= 4:
+            scalar = name == "stoch_scalar"
             length = int(self._number(arguments[3]))
             if length <= 0:
                 self.approximations.add("ta.invalid_length_na")
-                return [None, None]
+                return None if scalar else [None, None]
             source_series = [
                 value
                 for value in self._series_values_for_value(
@@ -3068,12 +3256,12 @@ class _PineRuntime:
             high_series = self._ohlcv_series("high")
             low_series = self._ohlcv_series("low")
             if len(source_series) < length or len(high_series) < length:
-                return [None, None]
+                return None if scalar else [None, None]
             highest = max(self._number(value) for value in high_series[-length:])
             lowest = min(self._number(value) for value in low_series[-length:])
             current = self._number(source_series[-1])
             percent_k = (current - lowest) / (highest - lowest) * 100 if highest != lowest else 50.0
-            return [percent_k, percent_k]
+            return percent_k if scalar else [percent_k, percent_k]
         if name in {"midpoint", "midprice"} and arguments:
             series = [
                 value
@@ -3152,7 +3340,7 @@ class _PineRuntime:
             if current is None or previous is None:
                 return None
             return self._number(current) - self._number(previous)
-        if name == "linreg" and len(arguments) >= 2:
+        if name in {"linreg", "linreg_scalar"} and len(arguments) >= 2:
             series = [
                 self._number(value)
                 for value in self._series_values_for_value(
@@ -3173,6 +3361,10 @@ class _PineRuntime:
                 if denominator
                 else 0.0
             )
+            if name == "linreg_scalar":
+                offset = int(self._number(arguments[2])) if len(arguments) > 2 else 0
+                intercept = y_mean - slope * x_mean
+                return intercept + slope * (length - 1 - offset)
             return [y_mean - slope * x_mean, slope]
         if name == "cog" and len(arguments) >= 2:
             series = [
@@ -3346,6 +3538,19 @@ class _PineRuntime:
             deviation = math.sqrt(sum((value - middle) ** 2 for value in series[-length:]) / length)
             multiplier = self._number(arguments[2]) if len(arguments) > 2 else 2.0
             return [middle, middle + multiplier * deviation, middle - multiplier * deviation]
+        if name == "bbw":
+            series = [
+                self._number(value)
+                for value in self._series_values_for_value(source, values, source_node)
+                if value is not None
+            ]
+            if len(series) < length:
+                return None
+            window = series[-length:]
+            middle = sum(window) / length
+            deviation = math.sqrt(sum((value - middle) ** 2 for value in window) / length)
+            multiplier = self._number(arguments[2]) if len(arguments) > 2 else 2.0
+            return 2 * multiplier * deviation / middle if middle else None
         if name in {"pivothigh", "pivotlow"} and len(arguments) >= 3:
             left_length = int(self._number(arguments[1]))
             right_length = int(self._number(arguments[2]))
@@ -3581,6 +3786,8 @@ class _PineRuntime:
             condition_values = self._series_values_for_value(
                 arguments[1], values, argument_nodes[1] if len(argument_nodes) > 1 else None
             )
+            if self._contains_missing(arguments[2]):
+                return None
             occurrence = int(self._number(arguments[2]))
             hits = [
                 value
@@ -3675,6 +3882,14 @@ class _PineRuntime:
             current_close,
         )
 
+    @staticmethod
+    def _contains_missing(value: Any) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, (list, tuple)):
+            return any(_PineRuntime._contains_missing(item) for item in value)
+        return False
+
     def _rising_falling(
         self,
         name: str,
@@ -3691,7 +3906,7 @@ class _PineRuntime:
         if len(series) < length + 1:
             return False
         recent = series[-(length + 1) :]
-        if any(value is None for value in recent):
+        if any(self._contains_missing(value) for value in recent):
             return False
         if name == "rising":
             return all(left < right for left, right in zip(recent, recent[1:], strict=False))
@@ -3724,6 +3939,15 @@ class _PineRuntime:
                     else current_minutes >= start_minutes or current_minutes < end_minutes
                 )
                 return int(current.timestamp()) if in_session else 0
+        if (
+            name == "time"
+            and arguments
+            and isinstance(arguments[0], str)
+            and arguments[0] in {"D", "W", "M", "1D", "1W", "1M"}
+            and self.current_candle is not None
+        ):
+            self.approximations.add("time.timeframe_approximation")
+            return int(self.current_candle.timestamp.timestamp())
         timestamp = (
             arguments[0]
             if arguments

@@ -43,16 +43,16 @@ Implemented in the current pass:
 The latest local baseline (runtime `0.3.1`, cached Binance BTC/USDT `1h`
 snapshot, 500 candles, 6,081 strategies) measured:
 
-- **1,607** strategies with completed trades, up from 862 in runtime 0.3.0
-- **4,054** no-order results
-- **322** validation errors, down from 2,569 in runtime 0.3.0
-- **95** execution-limit stops and **0** wall-clock timeout stops
-- **95** partial diagnostic snapshots
-- **3** runtime errors and **0** parse errors
+- **1,953** strategies with completed trades, up from 862 in runtime 0.3.0
+- **3,814** no-order results
+- **193** validation errors, down from 2,569 in runtime 0.3.0
+- **121** execution-limit stops and **0** wall-clock timeout stops
+- **121** partial diagnostic snapshots
+- **0** runtime errors and **0** parse errors
 
 This is a coverage report, not a profitability claim. The compatibility delta
-is detailed in `reports/compatibility-delta.md`; it records 758 newly eligible
-strategies and a net gain of 745 completed-trade strategies. The target archive
+is detailed in `reports/compatibility-delta.md`; it records 1,107 newly eligible
+strategies and a net gain of 1,091 completed-trade strategies. The target archive
 is `Pine/TradingView`: 20,479 Pine files parse successfully, including the 6,081
 strategy files used for the baseline. The result includes feature inventories,
 source hashes, the candle content hash, and explicit approximation markers.

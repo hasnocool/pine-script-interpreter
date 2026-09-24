@@ -26,6 +26,11 @@ _NAMESPACE_MEMBERS: dict[str, frozenset[str]] = {
         "new_bool",
         "new_string",
         "new_line",
+        "new_color",
+        "new_box",
+        "new_label",
+        "new_linefill",
+        "new_table",
         "from",
         "push",
         "pop",
@@ -549,6 +554,7 @@ _NAMESPACE_MEMBERS: dict[str, frozenset[str]] = {
         "cum",
         "obv",
         "bb",
+        "bbw",
         "alma",
         "linreg",
         "rsi",
@@ -627,7 +633,15 @@ _NAMESPACE_MEMBERS: dict[str, frozenset[str]] = {
         "format_time",
     ),
     "ticker": _members(
-        "new", "modify", "standard", "heikinashi", "renko", "linebreak", "kagi", "pointfigure"
+        "new",
+        "modify",
+        "standard",
+        "heikenashi",
+        "heikinashi",
+        "renko",
+        "linebreak",
+        "kagi",
+        "pointfigure",
     ),
     "dayofweek": _members(
         "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"

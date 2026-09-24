@@ -964,6 +964,16 @@ class Parser:
             if self._kind() is TokenType.LEFT_PAREN:
                 if self._is_visual_case_pattern(expression):
                     return expression
+                # Legacy Pine permits comma-separated assignments followed by
+                # a parenthesized final expression on the next physical line.
+                # The lexer intentionally omits that newline when a call could
+                # otherwise continue, so use source columns to keep the ``(``
+                # from becoming a dynamic call target on the preceding call.
+                if (
+                    self._current.location.line > expression.location.line
+                    and self._current.location.column <= expression.location.column
+                ):
+                    return expression
                 expression = self._parse_call(expression)
                 continue
             if self._kind() is TokenType.LESS and self._generic_call_ahead():

@@ -6,9 +6,11 @@ from pine_interpreter.parser.ast_nodes import (
     BinaryExpression,
     CallExpression,
     EnumDeclaration,
+    ExpressionStatement,
     ForStatement,
     FunctionDeclaration,
     HistoryExpression,
+    Identifier,
     IfStatement,
     MemberExpression,
     SwitchExpression,
@@ -145,6 +147,25 @@ values = array.new<float>(2, 0.0)
     assert isinstance(tuple_declaration, TupleDeclaration)
     assert isinstance(tuple_declaration.value, CallExpression)
     assert isinstance(tuple_declaration.value.callee, MemberExpression)
+
+
+def test_parser_keeps_parenthesized_result_after_comma_separated_declarations() -> None:
+    program = parse(
+        """
+normalize(source, length) =>
+    high = highest(source, length), low = lowest(source, length)
+    (high - low) / (high + low)
+"""
+    )
+
+    function = program.statements[0]
+    assert isinstance(function, FunctionDeclaration)
+    high, low, result = function.body
+    assert isinstance(high, VariableDeclaration)
+    assert isinstance(low, VariableDeclaration)
+    assert isinstance(low.value, CallExpression)
+    assert isinstance(low.value.callee, Identifier)
+    assert isinstance(result, ExpressionStatement)
 
 
 def test_parser_handles_visual_wrapping_and_split_function_headers() -> None:

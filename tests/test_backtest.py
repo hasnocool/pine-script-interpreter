@@ -634,6 +634,49 @@ def test_strategy_risk_and_order_group_constants_are_explicitly_approximated() -
     assert "strategy.risk.max_intraday_loss" in report.approximations
 
 
+def test_na_predicate_and_not_na_propagate_correctly() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("na predicate", overlay=true)
+        missing = na
+        if bar_index == 0 and na(missing) and not na(0)
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101]),
+    )
+
+    assert len(report) == 1
+
+
+def test_for_in_iterates_arrays_without_numeric_coercion() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("for-in arrays", overlay=true)
+        values = array.from(1, 2, 3)
+        total = 0.0
+        for value in values
+            total += value
+        if bar_index == 0 and total == 6
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101]),
+    )
+
+    assert len(report) == 1
+
+
 def test_common_extended_ta_indicators_evaluate_without_runtime_errors() -> None:
     source = dedent(
         """
@@ -895,7 +938,10 @@ def test_nontrading_builtins_are_explicitly_approximated() -> None:
         strategy("nontrading builtins", overlay=true)
         text = tostring(bar_index)
         seconds = timeframe.in_seconds()
-        ha = heikinashi()
+        ha = heikenashi()
+        pvt = ta.pvt
+        bandwidth = ta.bbw(close, 2)
+        firstBar = session.isfirstbar
         risingTwo = rising(close, 2)
         plotarrow(risingTwo, close)
         log.info(text)
@@ -911,7 +957,7 @@ def test_nontrading_builtins_are_explicitly_approximated() -> None:
 
     assert len(report) == 1
     assert "plotting.non_trading" in report.approximations
-    assert "heikinashi.ohlc" in report.approximations
+    assert "heikenashi.ohlc" in report.approximations
 
 
 def test_imported_user_defined_types_construct_and_dispatch_methods(tmp_path: Path) -> None:

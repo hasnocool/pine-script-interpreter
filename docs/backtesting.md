@@ -94,6 +94,11 @@ The current model is intentionally small and inspectable:
 - Legacy v2/v3 defaults, tuple-valued indicators, and common standard-library
   `TradingView/ta/*` imports use marked compatibility approximations; these
   are not claims of exact TradingView parity.
+- Compound assignment operators, collection `for…in` loops, and legacy
+  comma-separated declarations are evaluated as source operations. Unavailable
+  offsets and loop bounds remain `na` rather than becoming zero.
+- `na(x)` is a predicate and `not na` is handled before numeric coercion;
+  unavailable values and empty collection constructors cannot fabricate orders.
 - Step-limit and wall-clock interruptions restore the last completed-bar broker
   state and attach a `partial=True` report. Partial results remain excluded
   from rankings and successful-status counts.
