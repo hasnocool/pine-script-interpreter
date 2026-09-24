@@ -1,10 +1,13 @@
 # Pine backtesting
 
-The `pine_interpreter.backtest` package provides a small, deterministic
-backtest path for common Pine strategies. It parses Pine source and evaluates
-it once per OHLCV bar. It is separate from the basic expression-only runtime,
-so unsupported platform features are rejected or ignored explicitly rather
-than silently changing the order model.
+The `pine_interpreter.backtest` package is a deterministic, bar-by-bar research
+runtime for common Pine strategies. It is separate from the project's original
+expression-only interpreter. Unsupported platform behavior is recorded as a
+validation/runtime issue or an explicit approximation instead of being silently
+converted into a trade.
+
+The runtime is intended for screening and research. A positive result on one
+short candle window is not evidence that a strategy is profitable or safe.
 
 ## Install
 
@@ -15,7 +18,9 @@ when using public exchange endpoints:
 python -m pip install -e ".[backtest]"
 ```
 
-No API key is required for the public `fetch_ohlcv` endpoint.
+No API key is required for the public `fetch_ohlcv` endpoint. The package's
+current runtime version is recorded in `BacktestReport` and batch metadata so
+results can be compared across releases.
 
 ## Quick start
 
@@ -51,9 +56,11 @@ print(report[0])                 # first completed trade
 print(report.metrics)
 ```
 
-`BacktestEngine.validate(source, candles)` parses the source and validates the
-candle stream without running the strategy. The `validate_source` helper is
-available when only syntax validation is needed.
+`BacktestEngine.validate(source, candles)` parses source and validates the
+candle stream without running orders. `BacktestEngine.validate_source(source)`
+is available when only syntax parsing is needed. Parsed source text is kept in
+a bounded process-local cache; `parse_cache_info()` and `clear_parse_cache()`
+are available for diagnostics.
 
 For a quick terminal run:
 
@@ -63,30 +70,132 @@ pine-backtest strategy.pine --exchange binance --symbol BTC/USDT --timeframe 1h 
 
 The same command is available as `python -m pine_interpreter.backtest`.
 
-## Supported strategy surface
+## Execution model
 
-The first backtest runtime supports:
+The current model is intentionally small and inspectable:
 
-- `open`, `high`, `low`, `close`, `volume`, `time`, `timenow`, and `bar_index`
-- series history such as `close[1]`
-- `if`/`else`, common loops, assignments, tuple declarations, and user
-  functions
-- `ta.sma`, `ema`, `rma`, `wma`, `hma`, `highest`, `lowest`, `change`, `roc`,
-  `valuewhen`, `percentrank`, `crossover`, and `crossunder`
-- common `math.*`, `array.*`, `str.*`, and `input.*` helpers
-- common color/shape/position constants, `hl2`/`hlc3`/`ohlc4`, and `tr`
-- `strategy.entry`, `order`, `close`, `close_all`, `exit`, and cancel calls
+- Market entries and exits fill at the current candle close.
+- Stop and limit entries are queued and can fill on a later candle.
+- Long and short entries, reversals, pyramiding, `strategy.entry`, `order`,
+  `exit`, `close`, `close_all`, and cancellation are supported.
+- Partial exits accept `qty` and `qty_percent`; each completed slice is a
+  separately attributed `Trade`.
+- `stop_first`, `limit_first`, and `open_first` are explicit intrabar policies
+  for ambiguous candles.
+- Fees support a proportional `fee_rate` and `commission_per_trade`; optional
+  `spread_bps`, `slippage_bps`, and per-bar `funding_rate_bps` assumptions are
+  stored in the configuration. Funding is marked as an approximation.
+- `pyramiding`, initial cash, default quantity, percent-of-equity sizing, and
+  cash sizing can be configured globally and overridden by common strategy
+  declaration arguments.
+
+This is not a full exchange margin engine. For example, funding is charged per
+bar rather than reconstructed from an exchange's historical funding ledger.
+Reports should therefore state their configuration and candle assumptions.
+
+## Supported Pine surface
+
+The runtime covers a useful common subset rather than the complete TradingView
+language:
+
+- `open`, `high`, `low`, `close`, `volume`, `time`, `timenow`, `bar_index`,
+  `last_bar_index`, and bounded series history such as `close[1]`
+- declarations, assignments, `if`/`else`, common `for`/`while`/`switch` forms,
+  tuple declarations, user functions, enums, and `var`/`varip` state
+- common `math.*`, `array.*`, `str.*`, `input.*`, and Pine namespace constants
+- moving averages and statistics, RSI, stochastic, CCI, MFI, WPR/CMO, ATR/TR,
+  MACD, Bollinger/Keltner/Donchian, Supertrend, ADX/DMI, Aroon, SAR, VWAP/VWMA,
+  momentum/ROC, correlation, linear regression, value-when, and related
+  `ta.*` helpers
+- approximate `request.*` handling; every affected report carries an
+  approximation marker
+- local Pine libraries through `import "name" as alias`; calls are resolved in
+  an isolated per-runtime namespace with missing-path and circular-import
+  checks
 - `indicator`, `plot`, `alert`, and other nonessential declaration calls as
   no-ops
 
-Orders fill at the current bar close, with configurable fee and slippage
-assumptions. This is intentionally a compact validation/backtest surface,
-not a complete TradingView emulator. Add a new builtin with an explicit
-`_call_named` branch and a deterministic regression test.
+Every new builtin should have a deterministic policy and a regression test.
+Unknown functions are rejected explicitly; they are never silently converted
+into zero-valued signals or successful no-order runs. Nonessential chart/object
+construction calls may be explicit no-ops, but their output cannot affect
+orders. Invalid members, invalid lengths, and missing values are reported with
+stable error categories. See `RECOMMENDATIONS.md` for the compatibility
+roadmap and explicit remaining gaps.
 
-## Reports
+## Reproducible candle snapshots
 
-`BacktestReport` supports both name and integer indexing:
+`CCXTDataFeed.fetch_snapshot()` stores exchange, symbol, timeframe, fetch time,
+source, a SHA-256 content hash, quality warnings, and normalized rows. The
+loader accepts the current object format and the legacy list-only cache format.
+Requests over 1,000 candles are paged when the exchange supports the required
+`since`/`until` behavior.
+
+```python
+from pine_interpreter import CCXTDataFeed, load_snapshot, save_snapshot
+
+feed = CCXTDataFeed("binance", "BTC/USDT", "1h")
+snapshot = feed.fetch_snapshot(limit=500)
+save_snapshot("reports/.cache-btcusdt-1h.json", snapshot)
+same_snapshot = load_snapshot("reports/.cache-btcusdt-1h.json")
+assert same_snapshot.content_hash == snapshot.content_hash
+```
+
+Quality checks report duplicate timestamps, out-of-order candles, zero-volume
+bars, and likely timeframe gaps. A report should retain the snapshot used for
+the run, or at least its content hash and provenance.
+
+## Full strategy baseline
+
+The batch runner discovers every `.pine` file in an archive's `Strategies/`
+directory, fetches the selected market once, and runs independent files in
+parallel:
+
+```bash
+pine-backtest-batch \
+  --root /path/to/PineScripts_All \
+  --exchange binance \
+  --symbol BTC/USDT \
+  --timeframe 1h \
+  --limit 500 \
+  --workers 8 \
+  --max-steps 250000 \
+  --timeout-seconds 30 \
+  --cache reports/.cache-btcusdt-1h.json \
+  --output reports/baseline-btcusdt-1h.json \
+  --csv reports/baseline-btcusdt-1h.csv
+```
+
+The command shows progress, rate, and ETA on stderr. The JSON report contains
+source hashes, stable status/error categories, validation issues, feature
+inventories, approximation markers, execution-step counts, data metadata,
+duplicate-source groups, and one normalized result per strategy. The CLI can
+automatically use `<root>/Libraries`; use `--libraries` to override it.
+`--validate-only` parses and performs semantic checks without fetching candles
+or executing orders.
+
+The batch API exposes the same controls:
+
+```python
+from pine_interpreter import BacktestConfig, discover_strategy_files, run_strategy_batch
+
+report = run_strategy_batch(
+    discover_strategy_files("/path/to/PineScripts_All"),
+    candles,
+    exchange="binance",
+    symbol="BTC/USDT",
+    timeframe="1h",
+    config=BacktestConfig(default_qty=0.001, allow_short=True),
+    max_workers=8,
+    library_root="/path/to/PineScripts_All/Libraries",
+)
+report.write_json("baseline.json")
+report.write_csv("baseline.csv")
+```
+
+## Reports and search
+
+`BacktestReport` supports name and integer indexing:
 
 ```python
 report["final_equity"]
@@ -98,40 +207,12 @@ for trade in report:
     print(trade)
 ```
 
-Reports include total return, maximum drawdown, win rate, profit factor,
-completed trades, and an indexed equity curve. `print_report(report)` is a
-short alias for `report.print()`.
+Reports include return, drawdown, win rate, profit factor, completed trades,
+execution steps, and an indexed equity curve. `risk_metrics(report)` adds
+annualized return/volatility, Sharpe, Sortino, Calmar, expectancy, profit
+factor, average holding period, and time in market.
 
-## Full strategy baseline
-
-The batch runner discovers every file in an archive's `Strategies/` directory,
-fetches the selected market once, and runs independent files in parallel:
-
-```bash
-pine-backtest-batch \
-  --root /path/to/PineScripts_All \
-  --exchange binance \
-  --symbol BTC/USDT \
-  --timeframe 1h \
-  --limit 500 \
-  --workers 8 \
-  --max-steps 250000 \
-  --cache .cache/btc-usdt-1h.json \
-  --output reports/baseline-btcusdt-1h.json \
-  --csv reports/baseline-btcusdt-1h.csv
-```
-
-The command shows a live progress bar, rate, and ETA on stderr. The JSON report
-contains a summary, a name/path index, and one normalized result per strategy;
-unsupported, invalid, and execution-limit scripts are recorded rather than
-stopping the batch. The batch CLI allows short entries by default; pass
-`--long-only` to reject them. `--max-steps` bounds pathological loops so one
-script cannot stall the complete baseline.
-
-## Plain-English Markdown reports
-
-The batch JSON can be turned into a readable overall report and a ranked
-best-strategy report:
+Turn a batch JSON file into readable reports:
 
 ```bash
 pine-backtest-report \
@@ -142,17 +223,64 @@ pine-backtest-report \
   --ranking return
 ```
 
-This creates:
+This creates `top-100-strategies.md` and `overall-baseline.md`. Only strategies
+with at least one completed trade and status `backtested` are eligible. The
+default `return` ranking uses lower drawdown as a tie-breaker; alternatives are
+`risk-adjusted` and `drawdown`.
 
-- `reports/top-100-strategies.md` — the strongest eligible strategies, with
-  return, drawdown, trade count, final equity, and source file
-- `reports/overall-baseline.md` — a plain-English explanation of the entire
-  run, status totals, performance distribution, evaluation blockers, and
-  limitations
+For a searchable local index and a small terminal explorer:
 
-Only strategies with at least one completed trade are eligible for the
-ranking. The default `return` ranking is raw return, with lower drawdown used
-as a tie-breaker. Use `--ranking risk-adjusted` for return divided by maximum
-drawdown, or `--ranking drawdown` to favor the lowest drawdown. The reports
-are a screening baseline and should not be treated as investment advice or
-out-of-sample validation.
+```bash
+pine-backtest-index \
+  --input reports/baseline-btcusdt-1h.json \
+  --database reports/results.sqlite
+
+pine-backtest-index \
+  --database reports/results.sqlite \
+  --search crossover \
+  --sort-by drawdown \
+  --format markdown \
+  --output reports/explorer.md
+```
+
+The SQLite index supports status, category, source hash/name/path, return,
+drawdown, trade count, and runtime queries without rerunning the archive.
+
+## Research workflows
+
+Chronological splits, rolling/anchored walk-forward windows, and an explicit
+out-of-sample report are available from the public API and
+`pine-backtest-research`:
+
+```bash
+pine-backtest-research \
+  --source strategy.pine \
+  --cache reports/.cache-btcusdt-1h.json \
+  --mode out-of-sample \
+  --output research-report.json
+```
+
+`split_candles`, `walk_forward_windows`, `run_walk_forward`, and
+`run_out_of_sample` keep train/test data separate. `run_parameter_sweep`
+accepts a bounded, explicit list of input overrides. `compare_markets` keeps
+exchange, symbol, and timeframe as first-class dimensions.
+`benchmark_reports` provides no-trade, deterministic random-entry,
+moving-average-crossover, and buy-and-hold comparisons under the same broker
+assumptions.
+
+A strategy should remain labeled unvalidated until it has completed an
+out-of-sample test. `WalkForwardReport.validation_status` and its serialized
+summary expose that state. A parameter sweep is a research aid, not an
+unrestricted optimization engine.
+
+## Limitations and safe use
+
+- The runtime does not execute arbitrary Python or system code from Pine files.
+- Historical `request.*`, object/tuple behavior, charting calls, exchange
+  margin, funding ledgers, and some Pine type/qualifier rules remain partial.
+- Pending orders use a candle-level model, not tick-level replay.
+- Results can differ from TradingView because of data, fill, cost, and session
+  assumptions. Compare the stored runtime version and configuration first.
+- Never publish a generated ranking without its data provenance and execution
+  assumptions. Use the Markdown files for human-readable summaries and the
+  JSON/CSV/SQLite artifacts for analysis.

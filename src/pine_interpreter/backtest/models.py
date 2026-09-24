@@ -8,9 +8,17 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import overload
 
+BACKTEST_RUNTIME_VERSION = "0.2.0"
+
 
 class BacktestError(Exception):
     """Base class for errors raised by the backtest package."""
+
+    location: str | None
+
+    def __init__(self, message: str, location: str | None = None) -> None:
+        self.location = location
+        super().__init__(message)
 
 
 class BacktestValidationError(BacktestError, ValueError):
@@ -19,6 +27,10 @@ class BacktestValidationError(BacktestError, ValueError):
 
 class BacktestExecutionLimitError(BacktestValidationError):
     """Raised when a strategy exceeds the configured execution-step budget."""
+
+
+class BacktestExecutionTimeoutError(BacktestValidationError):
+    """Raised when a strategy exceeds the configured wall-clock budget."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,9 +105,15 @@ class BacktestConfig:
     fee_rate: float = 0.001
     slippage_bps: float = 0.0
     default_qty: float = 1.0
+    pyramiding: int = 1
     allow_short: bool = False
     close_at_end: bool = False
     max_execution_steps: int = 1_000_000
+    max_execution_seconds: float = 30.0
+    intrabar_policy: str = "stop_first"
+    spread_bps: float = 0.0
+    funding_rate_bps: float = 0.0
+    commission_per_trade: float = 0.0
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.initial_cash) or self.initial_cash <= 0:
@@ -107,11 +125,29 @@ class BacktestConfig:
         if not math.isfinite(self.default_qty) or self.default_qty <= 0:
             raise BacktestValidationError("default_qty must be positive and finite")
         if (
+            not isinstance(self.pyramiding, int)
+            or isinstance(self.pyramiding, bool)
+            or self.pyramiding < 1
+        ):
+            raise BacktestValidationError("pyramiding must be a positive integer")
+        if (
             not isinstance(self.max_execution_steps, int)
             or isinstance(self.max_execution_steps, bool)
             or self.max_execution_steps <= 0
         ):
             raise BacktestValidationError("max_execution_steps must be a positive integer")
+        if not math.isfinite(self.max_execution_seconds) or self.max_execution_seconds <= 0:
+            raise BacktestValidationError("max_execution_seconds must be positive and finite")
+        if self.intrabar_policy not in {"stop_first", "limit_first", "open_first"}:
+            raise BacktestValidationError(
+                "intrabar_policy must be stop_first, limit_first, or open_first"
+            )
+        if not math.isfinite(self.spread_bps) or self.spread_bps < 0:
+            raise BacktestValidationError("spread_bps must be non-negative and finite")
+        if not math.isfinite(self.funding_rate_bps):
+            raise BacktestValidationError("funding_rate_bps must be finite")
+        if not math.isfinite(self.commission_per_trade) or self.commission_per_trade < 0:
+            raise BacktestValidationError("commission_per_trade must be non-negative and finite")
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,6 +199,11 @@ class BacktestReport:
     trades: tuple[Trade, ...]
     equity_curve: tuple[EquityPoint, ...]
     bars: int
+    execution_steps: int = 0
+    approximations: tuple[str, ...] = ()
+    runtime_version: str = BACKTEST_RUNTIME_VERSION
+    config: BacktestConfig | None = None
+    library_dependencies: tuple[str, ...] = ()
 
     @property
     def metrics(self) -> dict[str, float | int | None]:
@@ -176,6 +217,7 @@ class BacktestReport:
             max_drawdown = max(max_drawdown, peak - point.equity)
         return {
             "bars": self.bars,
+            "execution_steps": self.execution_steps,
             "trade_count": len(self.trades),
             "final_equity": self.final_equity,
             "total_return": self.final_equity - self.initial_cash,
@@ -227,6 +269,10 @@ class BacktestReport:
             return self.final_equity
         if key == "bars":
             return self.bars
+        if key == "runtime_version":
+            return self.runtime_version
+        if key == "config":
+            return self.config
         metrics = self.metrics
         if key in metrics:
             return metrics[key]

@@ -124,9 +124,7 @@ class Parser:
                 if self._kind() is TokenType.INDENT:
                     statements.extend(self._parse_block())
                 elif self._starts_statement_token():
-                    statements.extend(
-                        self._parse_visual_block(self._current.location.column)
-                    )
+                    statements.extend(self._parse_visual_block(self._current.location.column))
                 continue
             statements.append(self._parse_statement())
             while self._kind() is TokenType.COMMA:
@@ -367,10 +365,7 @@ class Parser:
             and self._current.value in _DECLARATION_QUALIFIERS | _STORAGE_MODIFIERS
         ):
             self._advance()
-        if (
-            self._kind() is TokenType.IDENTIFIER
-            and self._peek().kind is TokenType.EQUAL
-        ):
+        if self._kind() is TokenType.IDENTIFIER and self._peek().kind is TokenType.EQUAL:
             name = self._advance().value
             self._advance()
             return FieldDeclaration(location, name, None, self._parse_expression())
@@ -468,10 +463,7 @@ class Parser:
                 TokenType.SEMICOLON,
             }:
                 self._advance()
-            if (
-                self._current.location.column <= header_column
-                or not self._starts_statement_token()
-            ):
+            if self._current.location.column <= header_column or not self._starts_statement_token():
                 self._index = saved_index
                 break
             statements.append(self._parse_statement())
@@ -598,16 +590,10 @@ class Parser:
 
         if self._kind() is TokenType.IDENTIFIER and self._current.value in _STORAGE_MODIFIERS:
             storage = self._advance().value
-        if (
-            self._kind() is TokenType.IDENTIFIER
-            and self._current.value in _DECLARATION_QUALIFIERS
-        ):
+        if self._kind() is TokenType.IDENTIFIER and self._current.value in _DECLARATION_QUALIFIERS:
             qualifier = self._advance().value
 
-        if (
-            self._name_starts_at(self._index)
-            and self._peek().kind is TokenType.EQUAL
-        ):
+        if self._name_starts_at(self._index) and self._peek().kind is TokenType.EQUAL:
             name = self._advance().value
             self._advance()
             return VariableDeclaration(
@@ -758,7 +744,8 @@ class Parser:
             while self._kind_at(next_index) is TokenType.NEWLINE:
                 next_index += 1
             if (
-                self._kind_at(next_index) in {
+                self._kind_at(next_index)
+                in {
                     TokenType.EOF,
                     TokenType.ELSE,
                     TokenType.FAT_ARROW,
@@ -1009,10 +996,7 @@ class Parser:
 
         if self._kind() is not TokenType.RIGHT_PAREN:
             while True:
-                if (
-                    self._kind() is TokenType.IDENTIFIER
-                    and self._peek().kind is TokenType.EQUAL
-                ):
+                if self._kind() is TokenType.IDENTIFIER and self._peek().kind is TokenType.EQUAL:
                     name = self._advance().value
                     self._advance()
                     arguments.append(CallArgument(callee.location, name, self._parse_expression()))
@@ -1108,16 +1092,13 @@ class Parser:
                 break
             if self._kind() in {TokenType.FAT_ARROW, TokenType.ELSE}:
                 return tuple(statements)
-            if (
-                self._switch_body_boundary(case_column)
-                and self._kind() not in {
-                    TokenType.NEWLINE,
-                    TokenType.DEDENT,
-                    TokenType.SEMICOLON,
-                    TokenType.FAT_ARROW,
-                    TokenType.ELSE,
-                }
-            ):
+            if self._switch_body_boundary(case_column) and self._kind() not in {
+                TokenType.NEWLINE,
+                TokenType.DEDENT,
+                TokenType.SEMICOLON,
+                TokenType.FAT_ARROW,
+                TokenType.ELSE,
+            }:
                 return tuple(statements)
             if self._kind() is TokenType.DEDENT:
                 next_index = self._index + 1
@@ -1126,9 +1107,8 @@ class Parser:
                     TokenType.DEDENT,
                 }:
                     next_index += 1
-                if (
-                    self._location_column(next_index) >= case_column
-                    and self._switch_marker_ahead(next_index, allow_call=True)
+                if self._location_column(next_index) >= case_column and self._switch_marker_ahead(
+                    next_index, allow_call=True
                 ):
                     self._index = next_index
                 elif self._kind_at(next_index) not in {
@@ -1159,16 +1139,13 @@ class Parser:
                 statements.append(self._parse_statement())
             if self._kind() in {TokenType.FAT_ARROW, TokenType.ELSE}:
                 return tuple(statements)
-            if (
-                self._switch_body_boundary(case_column)
-                and self._kind() not in {
-                    TokenType.NEWLINE,
-                    TokenType.DEDENT,
-                    TokenType.SEMICOLON,
-                    TokenType.FAT_ARROW,
-                    TokenType.ELSE,
-                }
-            ):
+            if self._switch_body_boundary(case_column) and self._kind() not in {
+                TokenType.NEWLINE,
+                TokenType.DEDENT,
+                TokenType.SEMICOLON,
+                TokenType.FAT_ARROW,
+                TokenType.ELSE,
+            }:
                 return tuple(statements)
             if not self._at_statement_end():
                 if self._starts_statement_token():
@@ -1387,10 +1364,7 @@ class Parser:
             "while",
         }:
             return False
-        if (
-            self._name_starts_at(index)
-            and self._kind_at(index + 1) is TokenType.LEFT_PAREN
-        ):
+        if self._name_starts_at(index) and self._kind_at(index + 1) is TokenType.LEFT_PAREN:
             closing = self._matching_delimiter(index + 1)
             if closing is not None:
                 if any(
@@ -1511,7 +1485,8 @@ class Parser:
                 cases
                 and self._current.location.column > case_column
                 and (
-                    self._kind() in {
+                    self._kind()
+                    in {
                         TokenType.SWITCH,
                         TokenType.IF,
                         TokenType.FOR,
@@ -1535,10 +1510,7 @@ class Parser:
             if (
                 not self._at_statement_end()
                 and self._kind() is not TokenType.FAT_ARROW
-                and not (
-                    case_column is not None
-                    and self._current.location.column <= case_column
-                )
+                and not (case_column is not None and self._current.location.column <= case_column)
             ):
                 self._raise_unexpected("the end of a switch case")
         return tuple(cases)

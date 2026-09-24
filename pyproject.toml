@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pine-interpreter"
-version = "0.1.0"
+version = "0.2.0"
 description = "A Python interpreter for TradingView Pine Script"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -25,6 +25,8 @@ pine-interpreter = "pine_interpreter.cli:main"
 pine-backtest = "pine_interpreter.backtest.__main__:main"
 pine-backtest-batch = "pine_interpreter.backtest.batch_cli:main"
 pine-backtest-report = "pine_interpreter.backtest.report_cli:main"
+pine-backtest-research = "pine_interpreter.backtest.research_cli:main"
+pine-backtest-index = "pine_interpreter.backtest.index_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

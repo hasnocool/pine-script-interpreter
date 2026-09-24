@@ -2,7 +2,7 @@
 
 A Python implementation of an interpreter for TradingView Pine Script.
 
-> **Status:** The lexer and parser cover the Pine v1-v6 syntax surface used by the public-script archive. A current archive smoke scan parses all 20,479 scripts. The runtime still executes only the smaller language subset documented in `docs/supported-language.md`.
+> **Status:** The lexer and parser cover the Pine v1-v6 syntax surface used by the public-script archive. A current archive smoke scan parses all 20,479 scripts. The separate backtest/research runtime now covers a practical common-strategy subset, with explicit diagnostics and approximations documented in `docs/backtesting.md`.
 
 ## Project goals
 
@@ -73,7 +73,7 @@ The syntax frontend covers:
 - `if`, loops, `switch`, functions, methods, imports, enums, and user-defined types
 - Source-aware diagnostics for lexer and parser errors
 
-The runtime currently covers a basic expression/statement subset. It does not yet implement the Pine standard library or time-series semantics.
+The basic expression runtime remains intentionally small. The separate optional backtest runtime adds a practical common `ta.*`/`strategy.*` surface, snapshots, research helpers, and archive-wide reporting; it is not a complete TradingView emulator.
 
 See [docs/supported-language.md](docs/supported-language.md) for the exact subset and [docs/roadmap.md](docs/roadmap.md) for planned language support.
 
@@ -87,10 +87,7 @@ returns a printable/indexable `BacktestReport`:
 python -m pip install -e ".[backtest]"
 ```
 
-The backtest runtime is deliberately separate from the basic expression
-runtime and currently targets common moving-average, crossover, and
-`strategy.entry`/`strategy.close` workflows. For a fast archive-wide baseline,
-install the extra and run:
+The backtest runtime is deliberately separate from the basic expression runtime. It supports common indicators, long/short orders, stop/limit fills, pyramiding, partial exits, local Pine libraries, semantic validation, reproducible candle snapshots, and OOS/walk-forward research. For a fast archive-wide baseline, install the extra and run:
 
 ```bash
 pine-backtest-batch \

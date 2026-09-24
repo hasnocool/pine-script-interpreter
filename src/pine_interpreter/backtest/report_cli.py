@@ -8,8 +8,13 @@ from typing import cast
 
 from pine_interpreter.backtest.batch import BatchBacktestReport
 from pine_interpreter.backtest.data import load_candles
-from pine_interpreter.backtest.markdown import Ranking, write_plain_english_reports
+from pine_interpreter.backtest.markdown import (
+    Ranking,
+    build_benchmark_markdown,
+    write_plain_english_reports,
+)
 from pine_interpreter.backtest.models import BacktestError
+from pine_interpreter.backtest.research import benchmark_reports
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,6 +46,7 @@ def main() -> None:
         report = BatchBacktestReport.from_json(args.input)
         candle_start = None
         candle_end = None
+        candles = None
         if args.cache is not None:
             candles = load_candles(args.cache)
             if candles:
@@ -55,6 +61,21 @@ def main() -> None:
             candle_start=candle_start,
             candle_end=candle_end,
         )
+        if candles:
+            try:
+                benchmarks = benchmark_reports(
+                    candles,
+                    config=report.config,
+                    symbol=report.symbol,
+                    timeframe=report.timeframe,
+                    exchange=report.exchange,
+                )
+                with overall_path.open("a", encoding="utf-8") as handle:
+                    handle.write("\n" + build_benchmark_markdown(benchmarks))
+            except (BacktestError, ValueError):
+                # A short or unusual candle window should not prevent the main
+                # batch report from being rendered.
+                pass
     except (OSError, BacktestError, ValueError) as exc:
         raise SystemExit(str(exc)) from exc
     print(f"Top strategies report: {top_path}")

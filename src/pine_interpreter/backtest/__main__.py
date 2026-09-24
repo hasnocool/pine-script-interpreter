@@ -21,6 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--fee", type=float, default=0.001)
     parser.add_argument("--slippage-bps", type=float, default=0)
     parser.add_argument("--qty", type=float, default=1.0)
+    parser.add_argument("--library-root", type=Path, default=None)
     parser.add_argument("--name", default="pine-strategy")
     parser.add_argument(
         "--keep-position",
@@ -41,7 +42,8 @@ def main() -> None:
                 slippage_bps=args.slippage_bps,
                 default_qty=args.qty,
                 close_at_end=not args.keep_position,
-            )
+            ),
+            library_root=args.library_root,
         ).run(
             args.source.read_text(encoding="utf-8"),
             candles,

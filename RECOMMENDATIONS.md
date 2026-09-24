@@ -5,6 +5,52 @@
 This document describes the features and abilities that should be added next to
 turn the archive-wide baseline into a useful Pine research platform.
 
+## Implementation status (runtime 0.2.0)
+
+The first implementation pass is now in the repository. The original counts
+below are retained as the historical pre-runtime baseline; rerun the batch
+after changing the runtime before comparing counts.
+
+Implemented in the current pass:
+
+- stable validation/runtime error categories, source hashes, locations,
+  execution-step counts, feature inventories, and approximation markers
+- SHA-256 candle snapshots with provenance, quality warnings, legacy-cache
+  loading, and CCXT pagination for long requests
+- common `ta.*` indicators, constants/namespaces, controlled approximate
+  `request.*` handling, and local Pine library imports with path/circular
+  checks
+- market/stop/limit orders, explicit intrabar policies, short entries,
+  pyramiding, percent/cash sizing, partial exits, fees, spread, slippage, and
+  configurable per-bar funding
+- semantic analysis and `--validate-only` batch mode
+- wall-clock and step safety limits with parallel workers
+- indexed JSON/CSV reports, plain-English Markdown, source/data/runtime
+  provenance, and a SQLite result index/terminal explorer
+- chronological splits, walk-forward/OOS runs, parameter sweeps, market
+  comparisons, risk metrics, and reproducible benchmark suites
+
+The latest local baseline (runtime `0.2.0`, cached Binance BTC/USDT `1h`
+snapshot, 500 candles, 6,081 strategies) measured:
+
+- **815** strategies with completed trades
+- **2,435** no-order results
+- **2,771** validation errors
+- **43** execution-limit stops and **17** wall-clock timeout stops
+- **0** runtime errors and **0** parse errors
+
+This is a coverage report, not a profitability claim. The result includes
+feature inventories for all 6,081 sources, source hashes, the candle content
+hash, and explicit approximation markers. Re-run the batch after any runtime
+change rather than comparing these counts to the historical baseline.
+
+The highest-value remaining work is compatibility depth (objects/types,
+complete order accounting, session/timeframe semantics, and more builtins),
+richer profiling/partial-timeout artifacts, broader compatibility fixtures,
+and a tick- or trade-level data adapter. These should be implemented only
+with explicit policies and regression measurements; see the detailed
+milestones below.
+
 The recommendations are based on the current baseline:
 
 - **6,081** strategies in the archive's `Strategies/` directory were attempted.
@@ -44,6 +90,22 @@ timeframe, and one relatively short data sample.
 5. **Test against the archive continuously.** Every new builtin should reduce a
    measured blocker category without breaking the existing corpus.
 
+## Current milestone mapping
+
+- **Milestone 1 — implemented:** formal categories, snapshot metadata/hashes,
+  runtime/config provenance, semantic validation, and execution limits.
+- **Milestone 2 — partially implemented:** the common `ta.*` surface,
+  strategy accounting/order controls, approximate `request.*`, and namespace
+  constants are present; deep type/object and exchange-specific semantics
+  remain.
+- **Milestone 3 — implemented as a research toolkit:** OOS/walk-forward,
+  multi-market runs, risk-adjusted rankings, duplicate hashes, and benchmark
+  helpers are available. OOS labels and benchmark fields are not yet merged
+  into every historical batch artifact.
+- **Milestone 4 — partially implemented:** SQLite indexing, terminal explorer,
+  bounded sweeps, and parsed-source caching are available. A browser UI,
+  incremental cache database, and language-server integration remain future
+  work.
 ## Priority 0 — Make results trustworthy
 
 These should be completed before treating the top-100 list as a meaningful

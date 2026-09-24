@@ -202,9 +202,7 @@ class Lexer:
                 self._read_string(character)
             elif character == "#" and self._is_color_literal():
                 self._read_color()
-            elif character.isdigit() or (
-                character == "." and self._peek(1).isdigit()
-            ):
+            elif character.isdigit() or (character == "." and self._peek(1).isdigit()):
                 self._read_number()
             elif self._is_identifier_start(character):
                 self._read_identifier()
@@ -285,7 +283,8 @@ class Lexer:
         if (
             self._peek() == "("
             and not self._line_follows_control
-            and self._previous_significant_kind() in {
+            and self._previous_significant_kind()
+            in {
                 TokenType.IDENTIFIER,
                 TokenType.RIGHT_PAREN,
                 TokenType.RIGHT_BRACKET,
@@ -373,8 +372,7 @@ class Lexer:
                     and self._line_starts_statement()
                 )
                 and not (
-                    self._continuation_operator in {"?", ":"}
-                    and self._line_starts_statement()
+                    self._continuation_operator in {"?", ":"} and self._line_starts_statement()
                 )
             )
             wrapped_body = width > self._indents[-1] and (
@@ -392,10 +390,7 @@ class Lexer:
             dedented_logical_operand = (
                 self._continuation_operator in {"and", "or", "to", "by"}
                 and width > 0
-                and (
-                    self._peek() in {"(", "[", "-", "+"}
-                    or not self._line_starts_statement()
-                )
+                and (self._peek() in {"(", "[", "-", "+"} or not self._line_starts_statement())
                 and not self._line_starts_assignment_or_control()
             )
             if (
@@ -464,9 +459,7 @@ class Lexer:
         )
 
     def _line_starts_statement(self) -> bool:
-        if self._peek().isdigit() or (
-            self._peek() == "." and self._peek(1).isdigit()
-        ):
+        if self._peek().isdigit() or (self._peek() == "." and self._peek(1).isdigit()):
             return False
         if self._peek() == "[":
             return True
@@ -478,11 +471,7 @@ class Lexer:
         if line_end < 0:
             line_end = len(self._source)
         rest = self._source[end:line_end].lstrip()
-        if (
-            rest.startswith(".")
-            and "(" in rest
-            and word not in _VALUE_NAMESPACES
-        ) or (
+        if (rest.startswith(".") and "(" in rest and word not in _VALUE_NAMESPACES) or (
             self._is_identifier_start(self._peek()) and rest.startswith("(")
         ):
             return True
@@ -532,9 +521,7 @@ class Lexer:
         if not self._is_identifier_start(character):
             return character
         end = self._index + 1
-        while self._source[end : end + 1] and self._is_identifier_part(
-            self._source[end : end + 1]
-        ):
+        while self._source[end : end + 1] and self._is_identifier_part(self._source[end : end + 1]):
             end += 1
         return self._source[self._index : end]
 
@@ -548,18 +535,13 @@ class Lexer:
         if character == "." and self._peek(1).isdigit():
             return False
         if character in "+-":
-            return (
-                not self._line_follows_control
-                and self._previous_token_can_continue_expression()
-            )
+            return not self._line_follows_control and self._previous_token_can_continue_expression()
         if character in "?:*/%=<>.":
             return True
         if not self._is_identifier_start(character):
             return False
         end = self._index + 1
-        while self._source[end : end + 1] and self._is_identifier_part(
-            self._source[end : end + 1]
-        ):
+        while self._source[end : end + 1] and self._is_identifier_part(self._source[end : end + 1]):
             end += 1
         return self._source[self._index : end] in {"and", "or", "to", "by"}
 

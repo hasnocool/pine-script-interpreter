@@ -14,13 +14,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, overload
 
+from pine_interpreter.backtest.data import CandleSnapshot
 from pine_interpreter.backtest.engine import BacktestEngine
+from pine_interpreter.backtest.errors import classify_error, error_location, source_digest
 from pine_interpreter.backtest.models import (
+    BACKTEST_RUNTIME_VERSION,
     BacktestConfig,
     BacktestExecutionLimitError,
+    BacktestExecutionTimeoutError,
     BacktestValidationError,
     Candle,
 )
+from pine_interpreter.backtest.semantic import analyze_source
 from pine_interpreter.diagnostics import PineRuntimeError, PineSyntaxError
 
 
@@ -37,6 +42,14 @@ class StrategyResult:
     max_drawdown_pct: float | None = None
     elapsed_seconds: float = 0.0
     error: str | None = None
+    error_category: str | None = None
+    error_location: str | None = None
+    source_hash: str | None = None
+    execution_steps: int | None = None
+    features: tuple[str, ...] = ()
+    validation_issues: tuple[str, ...] = ()
+    approximations: tuple[str, ...] = ()
+    library_dependencies: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -54,6 +67,13 @@ class BatchBacktestReport:
     candles: int
     results: tuple[StrategyResult, ...]
     config: BacktestConfig | None = None
+    data_hash: str | None = None
+    data_start: datetime | None = None
+    data_end: datetime | None = None
+    data_warnings: tuple[str, ...] = ()
+    runtime_version: str = BACKTEST_RUNTIME_VERSION
+    data_source: str | None = None
+    data_fetched_at: datetime | None = None
 
     @property
     def elapsed_seconds(self) -> float:
@@ -69,14 +89,32 @@ class BatchBacktestReport:
             "candles": self.candles,
             "elapsed_seconds": self.elapsed_seconds,
             "backtested": statuses.get("backtested", 0),
+            "validated": statuses.get("validated", 0),
             "no_orders": statuses.get("no_orders", 0),
             "parse_errors": statuses.get("parse_error", 0),
             "validation_errors": statuses.get("validation_error", 0),
             "execution_limits": statuses.get("execution_limit", 0),
+            "execution_timeouts": statuses.get("execution_timeout", 0),
             "runtime_errors": statuses.get("runtime_error", 0) + statuses.get("worker_error", 0),
             "io_errors": statuses.get("io_error", 0),
             **{f"status_{key}": value for key, value in sorted(statuses.items())},
         }
+
+    @property
+    def duplicate_hashes(self) -> dict[str, tuple[str, ...]]:
+        grouped: dict[str, list[str]] = {}
+        for result in self.results:
+            if result.source_hash:
+                grouped.setdefault(result.source_hash, []).append(result.path)
+        return {digest: tuple(paths) for digest, paths in grouped.items() if len(paths) > 1}
+
+    @property
+    def error_categories(self) -> dict[str, int]:
+        categories: dict[str, int] = {}
+        for result in self.results:
+            if result.error_category:
+                categories[result.error_category] = categories.get(result.error_category, 0) + 1
+        return categories
 
     @property
     def by_name(self) -> dict[str, StrategyResult]:
@@ -98,7 +136,9 @@ class BatchBacktestReport:
     @property
     def successful(self) -> tuple[StrategyResult, ...]:
         return tuple(
-            result for result in self.results if result.status in {"backtested", "no_orders"}
+            result
+            for result in self.results
+            if result.status in {"backtested", "no_orders", "validated"}
         )
 
     def __len__(self) -> int:
@@ -118,6 +158,10 @@ class BatchBacktestReport:
             return self.results[key]
         if key == "summary":
             return self.summary
+        if key == "error_categories":
+            return self.error_categories
+        if key == "duplicate_hashes":
+            return self.duplicate_hashes
         if key == "results":
             return self.results
         if key == "index":
@@ -132,6 +176,20 @@ class BatchBacktestReport:
             return self.candles
         if key == "config":
             return self.config
+        if key == "data_hash":
+            return self.data_hash
+        if key == "data_start":
+            return self.data_start
+        if key == "data_end":
+            return self.data_end
+        if key == "data_warnings":
+            return self.data_warnings
+        if key == "runtime_version":
+            return self.runtime_version
+        if key == "data_source":
+            return self.data_source
+        if key == "data_fetched_at":
+            return self.data_fetched_at
         result = self.by_name.get(key) or self.by_path.get(key)
         if result is not None:
             return result
@@ -146,8 +204,19 @@ class BatchBacktestReport:
                 "started_at": self.started_at.isoformat(),
                 "finished_at": self.finished_at.isoformat(),
                 "candles": self.candles,
+                "data_hash": self.data_hash,
+                "data_start": self.data_start.isoformat() if self.data_start else None,
+                "data_end": self.data_end.isoformat() if self.data_end else None,
+                "data_warnings": list(self.data_warnings),
+                "data_source": self.data_source,
+                "data_fetched_at": self.data_fetched_at.isoformat()
+                if self.data_fetched_at
+                else None,
+                "runtime_version": self.runtime_version,
             },
             "summary": self.summary,
+            "error_categories": self.error_categories,
+            "duplicate_hashes": self.duplicate_hashes,
             "index": self.index,
             "config": asdict(self.config) if self.config is not None else None,
             "results": [result.to_dict() for result in self.results],
@@ -186,6 +255,22 @@ class BatchBacktestReport:
                     ),
                     elapsed_seconds=float(row.get("elapsed_seconds", 0)),
                     error=None if row.get("error") is None else str(row["error"]),
+                    error_category=(
+                        None if row.get("error_category") is None else str(row["error_category"])
+                    ),
+                    error_location=(
+                        None if row.get("error_location") is None else str(row["error_location"])
+                    ),
+                    source_hash=None if row.get("source_hash") is None else str(row["source_hash"]),
+                    execution_steps=(
+                        None if row.get("execution_steps") is None else int(row["execution_steps"])
+                    ),
+                    features=tuple(str(item) for item in row.get("features", [])),
+                    validation_issues=tuple(str(item) for item in row.get("validation_issues", [])),
+                    approximations=tuple(str(item) for item in row.get("approximations", [])),
+                    library_dependencies=tuple(
+                        str(item) for item in row.get("library_dependencies", [])
+                    ),
                 )
             )
         config_data = data.get("config")
@@ -197,15 +282,35 @@ class BatchBacktestReport:
                     fee_rate=float(config_data.get("fee_rate", 0.001)),
                     slippage_bps=float(config_data.get("slippage_bps", 0.0)),
                     default_qty=float(config_data.get("default_qty", 1.0)),
+                    pyramiding=int(config_data.get("pyramiding", 1)),
                     allow_short=bool(config_data.get("allow_short", False)),
                     close_at_end=bool(config_data.get("close_at_end", False)),
                     max_execution_steps=int(config_data.get("max_execution_steps", 1_000_000)),
+                    max_execution_seconds=float(config_data.get("max_execution_seconds", 30.0)),
+                    intrabar_policy=str(config_data.get("intrabar_policy", "stop_first")),
+                    spread_bps=float(config_data.get("spread_bps", 0.0)),
+                    funding_rate_bps=float(config_data.get("funding_rate_bps", 0.0)),
+                    commission_per_trade=float(config_data.get("commission_per_trade", 0.0)),
                 )
             except (TypeError, ValueError) as exc:
                 raise BacktestValidationError(f"invalid batch report config: {exc}") from exc
         try:
             started_at = datetime.fromisoformat(str(metadata["started_at"]))
             finished_at = datetime.fromisoformat(str(metadata["finished_at"]))
+            data_start_value = metadata.get("data_start")
+            data_end_value = metadata.get("data_end")
+            data_start = datetime.fromisoformat(str(data_start_value)) if data_start_value else None
+            data_end = datetime.fromisoformat(str(data_end_value)) if data_end_value else None
+            warnings_value = metadata.get("data_warnings", [])
+            data_warnings = (
+                tuple(str(item) for item in warnings_value)
+                if isinstance(warnings_value, list)
+                else ()
+            )
+            fetched_value = metadata.get("data_fetched_at")
+            data_fetched_at = datetime.fromisoformat(str(fetched_value)) if fetched_value else None
+            if data_fetched_at is not None and data_fetched_at.tzinfo is None:
+                data_fetched_at = data_fetched_at.replace(tzinfo=UTC)
             return cls(
                 str(metadata["exchange"]),
                 str(metadata["symbol"]),
@@ -215,6 +320,13 @@ class BatchBacktestReport:
                 int(metadata["candles"]),
                 tuple(results),
                 config,
+                None if metadata.get("data_hash") is None else str(metadata["data_hash"]),
+                data_start,
+                data_end,
+                data_warnings,
+                str(metadata.get("runtime_version", BACKTEST_RUNTIME_VERSION)),
+                None if metadata.get("data_source") is None else str(metadata["data_source"]),
+                data_fetched_at,
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise BacktestValidationError(f"invalid batch report metadata: {exc}") from exc
@@ -243,7 +355,16 @@ class BatchBacktestReport:
         with destination.open("w", encoding="utf-8", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fields)
             writer.writeheader()
-            writer.writerows(result.to_dict() for result in self.results)
+            for result in self.results:
+                row = result.to_dict()
+                writer.writerow(
+                    {
+                        key: json.dumps(value, separators=(",", ":"))
+                        if isinstance(value, (tuple, list, dict))
+                        else value
+                        for key, value in row.items()
+                    }
+                )
         return destination
 
     def print(self) -> None:
@@ -261,27 +382,53 @@ class BatchBacktestReport:
 
 _WORKER_CANDLES: tuple[Candle, ...] = ()
 _WORKER_CONFIG: BacktestConfig = BacktestConfig()
+_WORKER_LIBRARY_ROOT: Path | None = None
+_WORKER_EXCHANGE = "synthetic"
+_WORKER_SYMBOL = "UNKNOWN"
+_WORKER_TIMEFRAME = "unknown"
 
 
-def _initialize_worker(candles: tuple[Candle, ...], config: BacktestConfig) -> None:
-    global _WORKER_CANDLES, _WORKER_CONFIG
+def _initialize_worker(
+    candles: tuple[Candle, ...],
+    config: BacktestConfig,
+    library_root: Path | None = None,
+    exchange: str = "synthetic",
+    symbol: str = "UNKNOWN",
+    timeframe: str = "unknown",
+) -> None:
+    global _WORKER_CANDLES, _WORKER_CONFIG, _WORKER_LIBRARY_ROOT
+    global _WORKER_EXCHANGE, _WORKER_SYMBOL, _WORKER_TIMEFRAME
     _WORKER_CANDLES = candles
     _WORKER_CONFIG = config
+    _WORKER_LIBRARY_ROOT = library_root
+    _WORKER_EXCHANGE = exchange
+    _WORKER_SYMBOL = symbol
+    _WORKER_TIMEFRAME = timeframe
 
 
 def _run_strategy(path_text: str) -> StrategyResult:
     path = Path(path_text)
     started = time.perf_counter()
     name = path.stem
+    source_hash: str | None = None
+    features: tuple[str, ...] = ()
+    validation_issues: tuple[str, ...] = ()
     try:
         source = path.read_text(encoding="utf-8")
-        report = BacktestEngine(_WORKER_CONFIG).run(
+        source_hash = source_digest(source)
+        analysis = analyze_source(source)
+        features = analysis.features
+        validation_issues = tuple(issue.code for issue in analysis.issues)
+        report = BacktestEngine(
+            _WORKER_CONFIG,
+            library_root=_WORKER_LIBRARY_ROOT,
+        ).run(
             source,
             _WORKER_CANDLES,
             name=name,
-            symbol="batch",
-            timeframe="batch",
-            exchange="batch",
+            symbol=_WORKER_SYMBOL,
+            timeframe=_WORKER_TIMEFRAME,
+            exchange=_WORKER_EXCHANGE,
         )
         metrics = report.metrics
         final_equity = metrics["final_equity"]
@@ -296,19 +443,185 @@ def _run_strategy(path_text: str) -> StrategyResult:
             float(total_return) if total_return is not None else None,
             float(drawdown) if drawdown is not None else None,
             time.perf_counter() - started,
+            source_hash=source_hash,
+            execution_steps=report.execution_steps,
+            features=features,
+            validation_issues=validation_issues,
+            approximations=report.approximations,
+            library_dependencies=report.library_dependencies,
         )
     except FileNotFoundError as exc:
-        return _failed_result(path, name, "io_error", started, exc)
+        return _failed_result(
+            path,
+            name,
+            "io_error",
+            started,
+            exc,
+            source_hash=source_hash,
+            features=features,
+            validation_issues=validation_issues,
+        )
     except PineSyntaxError as exc:
-        return _failed_result(path, name, "parse_error", started, exc)
+        return _failed_result(
+            path,
+            name,
+            "parse_error",
+            started,
+            exc,
+            source_hash=source_hash,
+            features=features,
+            validation_issues=validation_issues,
+        )
     except BacktestExecutionLimitError as exc:
-        return _failed_result(path, name, "execution_limit", started, exc)
+        return _failed_result(
+            path,
+            name,
+            "execution_limit",
+            started,
+            exc,
+            source_hash=source_hash,
+            features=features,
+            validation_issues=validation_issues,
+        )
+    except BacktestExecutionTimeoutError as exc:
+        return _failed_result(
+            path,
+            name,
+            "execution_timeout",
+            started,
+            exc,
+            source_hash=source_hash,
+            features=features,
+            validation_issues=validation_issues,
+        )
     except BacktestValidationError as exc:
-        return _failed_result(path, name, "validation_error", started, exc)
+        return _failed_result(
+            path,
+            name,
+            "validation_error",
+            started,
+            exc,
+            source_hash=source_hash,
+            features=features,
+            validation_issues=validation_issues,
+        )
     except PineRuntimeError as exc:
-        return _failed_result(path, name, "runtime_error", started, exc)
+        return _failed_result(
+            path,
+            name,
+            "runtime_error",
+            started,
+            exc,
+            source_hash=source_hash,
+            features=features,
+            validation_issues=validation_issues,
+        )
     except Exception as exc:  # defensive: one bad script must not stop a batch
-        return _failed_result(path, name, "runtime_error", started, exc)
+        return _failed_result(
+            path,
+            name,
+            "runtime_error",
+            started,
+            exc,
+            source_hash=source_hash,
+            features=features,
+            validation_issues=validation_issues,
+        )
+
+
+def _validate_strategy(path_text: str) -> StrategyResult:
+    path = Path(path_text)
+    started = time.perf_counter()
+    name = path.stem
+    source_hash: str | None = None
+    try:
+        source = path.read_text(encoding="utf-8")
+        source_hash = source_digest(source)
+        analysis = analyze_source(source)
+        issue_codes = tuple(issue.code for issue in analysis.issues)
+        if not analysis.valid:
+            issue = analysis.errors[0]
+            status = "parse_error" if issue.code == "parse_error" else "validation_error"
+            error = BacktestValidationError(issue.message, location=issue.location)
+            return _failed_result(
+                path,
+                name,
+                status,
+                started,
+                error,
+                source_hash=source_hash,
+                features=analysis.features,
+                validation_issues=issue_codes,
+                category_override="parse_error" if status == "parse_error" else None,
+            )
+        return StrategyResult(
+            str(path),
+            name,
+            "validated",
+            elapsed_seconds=time.perf_counter() - started,
+            source_hash=source_hash,
+            features=analysis.features,
+            validation_issues=issue_codes,
+        )
+    except FileNotFoundError as exc:
+        return _failed_result(path, name, "io_error", started, exc, source_hash=source_hash)
+    except PineSyntaxError as exc:
+        return _failed_result(path, name, "parse_error", started, exc, source_hash=source_hash)
+    except BacktestValidationError as exc:
+        return _failed_result(path, name, "validation_error", started, exc, source_hash=source_hash)
+    except Exception as exc:
+        return _failed_result(path, name, "runtime_error", started, exc, source_hash=source_hash)
+
+
+def validate_strategy_batch(
+    paths: Iterable[str | Path],
+    *,
+    max_workers: int | None = None,
+    show_progress: bool = True,
+) -> BatchBacktestReport:
+    """Parse and validate many scripts without fetching candles or executing orders."""
+
+    path_list = tuple(Path(path) for path in paths)
+    if not path_list:
+        raise BacktestValidationError("no strategy files were provided")
+    if max_workers is not None and (
+        not isinstance(max_workers, int) or isinstance(max_workers, bool) or max_workers < 1
+    ):
+        raise BacktestValidationError("max_workers must be a positive integer")
+    workers = max_workers or min(8, os.cpu_count() or 1)
+    started_at = datetime.now(UTC)
+    progress = _Progress(len(path_list), show_progress, "Validate")
+    results: list[StrategyResult | None] = [None] * len(path_list)
+    if workers == 1:
+        for index, path in enumerate(path_list):
+            results[index] = _validate_strategy(str(path))
+            progress.update()
+    else:
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(_validate_strategy, str(path)): index
+                for index, path in enumerate(path_list)
+            }
+            for future in as_completed(futures):
+                index = futures[future]
+                try:
+                    results[index] = future.result()
+                except Exception as exc:
+                    path = path_list[index]
+                    results[index] = _failed_result(
+                        path, path.stem, "worker_error", progress.started, exc
+                    )
+                progress.update()
+    progress.close()
+    return BatchBacktestReport(
+        exchange="validation",
+        symbol="none",
+        timeframe="none",
+        started_at=started_at,
+        finished_at=datetime.now(UTC),
+        candles=0,
+        results=tuple(result for result in results if result is not None),
+    )
 
 
 def _failed_result(
@@ -317,20 +630,32 @@ def _failed_result(
     status: str,
     started: float,
     error: BaseException,
+    *,
+    source_hash: str | None = None,
+    features: tuple[str, ...] = (),
+    validation_issues: tuple[str, ...] = (),
+    category_override: str | None = None,
 ) -> StrategyResult:
+    category = classify_error(error)
     return StrategyResult(
         str(path),
         name,
         status,
         elapsed_seconds=time.perf_counter() - started,
         error=str(error),
+        error_category=category_override or category.value,
+        error_location=error_location(error),
+        source_hash=source_hash,
+        features=features,
+        validation_issues=validation_issues,
     )
 
 
 class _Progress:
-    def __init__(self, total: int, enabled: bool) -> None:
+    def __init__(self, total: int, enabled: bool, label: str = "Batch backtest") -> None:
         self.total = total
         self.enabled = enabled
+        self.label = label
         self.completed = 0
         self.started = time.perf_counter()
 
@@ -343,7 +668,7 @@ class _Progress:
         remaining = max(0, self.total - self.completed)
         eta = remaining / rate if rate > 0 else float("inf")
         print(
-            f"\rBatch backtest {self.completed}/{self.total} "
+            f"\r{self.label} {self.completed}/{self.total} "
             f"({self.completed / self.total:6.2%}) | {rate:6.2f} strategies/s | "
             f"ETA {_format_duration(eta)}",
             end="",
@@ -384,6 +709,8 @@ def run_strategy_batch(
     config: BacktestConfig | None = None,
     max_workers: int | None = None,
     show_progress: bool = True,
+    data_snapshot: CandleSnapshot | None = None,
+    library_root: str | Path | None = None,
 ) -> BatchBacktestReport:
     """Run many independent strategies in parallel and return an indexed report."""
 
@@ -393,13 +720,23 @@ def run_strategy_batch(
     if not candles:
         raise BacktestValidationError("at least one candle is required")
     batch_config = config or BacktestConfig()
+    if max_workers is not None and (
+        not isinstance(max_workers, int) or isinstance(max_workers, bool) or max_workers < 1
+    ):
+        raise BacktestValidationError("max_workers must be a positive integer")
     workers = max_workers or min(8, os.cpu_count() or 1)
-    workers = max(1, workers)
     started_at = datetime.now(UTC)
     progress = _Progress(len(path_list), show_progress)
     results: list[StrategyResult | None] = [None] * len(path_list)
     if workers == 1:
-        _initialize_worker(tuple(candles), batch_config)
+        _initialize_worker(
+            tuple(candles),
+            batch_config,
+            Path(library_root) if library_root else None,
+            exchange,
+            symbol,
+            timeframe,
+        )
         for index, path in enumerate(path_list):
             results[index] = _run_strategy(str(path))
             progress.update()
@@ -407,7 +744,14 @@ def run_strategy_batch(
         with ProcessPoolExecutor(
             max_workers=workers,
             initializer=_initialize_worker,
-            initargs=(tuple(candles), batch_config),
+            initargs=(
+                tuple(candles),
+                batch_config,
+                Path(library_root) if library_root else None,
+                exchange,
+                symbol,
+                timeframe,
+            ),
         ) as executor:
             futures = {
                 executor.submit(_run_strategy, str(path)): index
@@ -426,12 +770,18 @@ def run_strategy_batch(
     progress.close()
     finished_at = datetime.now(UTC)
     return BatchBacktestReport(
-        exchange,
-        symbol,
-        timeframe,
-        started_at,
-        finished_at,
-        len(candles),
-        tuple(result for result in results if result is not None),
-        batch_config,
+        exchange=exchange,
+        symbol=symbol,
+        timeframe=timeframe,
+        started_at=started_at,
+        finished_at=finished_at,
+        candles=len(candles),
+        results=tuple(result for result in results if result is not None),
+        config=batch_config,
+        data_hash=data_snapshot.content_hash if data_snapshot is not None else None,
+        data_start=data_snapshot.start if data_snapshot is not None else None,
+        data_end=data_snapshot.end if data_snapshot is not None else None,
+        data_warnings=data_snapshot.warnings if data_snapshot is not None else (),
+        data_source=data_snapshot.source if data_snapshot is not None else None,
+        data_fetched_at=data_snapshot.fetched_at if data_snapshot is not None else None,
     )

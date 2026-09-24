@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from statistics import mean, median
 from typing import Literal
 
 from pine_interpreter.backtest.batch import BatchBacktestReport, StrategyResult
-from pine_interpreter.backtest.models import BacktestValidationError
+from pine_interpreter.backtest.models import BacktestReport, BacktestValidationError
 
 Ranking = Literal["return", "risk-adjusted", "drawdown"]
 
@@ -84,6 +85,8 @@ def build_top_strategies_markdown(
     if top_count < 1:
         raise BacktestValidationError("top_count must be at least one")
     ranked = ranked_strategies(report, ranking=ranking, min_trades=min_trades)
+    candle_start = candle_start or report.data_start
+    candle_end = candle_end or report.data_end
     selected = ranked[:top_count]
     lines = [
         f"# Top {top_count} Pine Strategies",
@@ -99,6 +102,7 @@ def build_top_strategies_markdown(
         f"- **Minimum trades:** {min_trades}",
         f"- **Strategies eligible:** {len(ranked)}",
         f"- **Candles used:** {report.candles}",
+        f"- **Runtime version:** `{report.runtime_version}`",
     ]
     period = _format_period(candle_start, candle_end)
     if period:
@@ -184,9 +188,13 @@ def build_overall_markdown(
     returns = [float(result.total_return_pct or 0.0) for result in trade_results]
     drawdowns = [float(result.max_drawdown_pct or 0.0) for result in trade_results]
     ranked = ranked_strategies(report, ranking=ranking, min_trades=min_trades)
+    candle_start = candle_start or report.data_start
+    candle_end = candle_end or report.data_end
     positive = sum(value > 0 for value in returns)
     negative = sum(value < 0 for value in returns)
     flat = len(returns) - positive - negative
+    approximation_count = sum(bool(result.approximations) for result in report.results)
+    library_count = sum(bool(result.library_dependencies) for result in report.results)
     lines = [
         "# Overall Pine Backtest Baseline",
         "",
@@ -200,15 +208,25 @@ def build_overall_markdown(
         ),
         "",
         f"- **Run time:** {_format_duration(float(summary['elapsed_seconds']))}",
+        f"- **Runtime version:** `{report.runtime_version}`",
         f"- **Strategies attempted:** {total:,}",
         f"- **Produced completed trades:** {len(trade_results):,}",
         f"- **Ran without completed orders:** {int(summary['no_orders']):,}",
         f"- **Could not be evaluated:** {total - len(report.successful):,}",
+        f"- **Used an explicit approximation:** {approximation_count:,}",
+        f"- **Used a local Pine library:** {library_count:,}",
+        f"- **Duplicate source groups:** {len(report.duplicate_hashes):,}",
         "- **Detailed shortlist:** See the companion `top-100-strategies.md` report.",
     ]
     period = _format_period(candle_start, candle_end)
     if period:
         lines.append(f"- **Candle period:** {period}")
+    if report.data_hash:
+        lines.append(f"- **Candle fingerprint:** `{report.data_hash}`")
+    if report.data_source:
+        lines.append(f"- **Candle source:** `{report.data_source}`")
+    if report.data_warnings:
+        lines.append(f"- **Data warnings:** {'; '.join(report.data_warnings)}")
     lines.extend(
         [
             "",
@@ -374,10 +392,41 @@ def build_overall_markdown(
                 f"- Fee rate: {_format_percent(config.fee_rate * 100)}",
                 f"- Slippage: {config.slippage_bps:g} basis points",
                 f"- Default quantity: {_format_quantity(config.default_qty)}",
+                f"- Pyramiding entries: {config.pyramiding}",
                 f"- Short entries: {'allowed' if config.allow_short else 'disabled'}",
                 f"- Close open position at end: {'yes' if config.close_at_end else 'no'}",
                 f"- Execution-step limit: {config.max_execution_steps:,}",
+                f"- Execution-time limit: {config.max_execution_seconds:g}s",
+                f"- Intrabar policy: {config.intrabar_policy}",
             ]
+        )
+    return "\n".join(lines) + "\n"
+
+
+def build_benchmark_markdown(benchmarks: Mapping[str, BacktestReport]) -> str:
+    """Build a compact comparison table for standard research baselines."""
+
+    lines = [
+        "## Benchmark comparison",
+        "",
+        "These baselines use the same candle window and broker assumptions as the strategy run.",
+        "",
+        "| Benchmark | Completed trades | Return | Max drawdown | Final equity |",
+        "| --- | ---: | ---: | ---: | ---: |",
+    ]
+    for name, benchmark in benchmarks.items():
+        lines.append(
+            "| "
+            + " | ".join(
+                (
+                    _escape_cell(name.replace("_", " ").title()),
+                    str(len(benchmark)),
+                    _format_percent(benchmark.metrics["total_return_pct"]),
+                    _format_percent(benchmark.metrics["max_drawdown_pct"]),
+                    _format_number(benchmark.final_equity),
+                )
+            )
+            + " |"
         )
     return "\n".join(lines) + "\n"
 
