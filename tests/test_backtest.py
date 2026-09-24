@@ -1030,6 +1030,60 @@ def test_drawing_handles_keep_nonessential_methods_explicitly_approximated() -> 
     assert "drawing.handles" in report.approximations
 
 
+def test_matrix_transpose_and_sum_return_real_values() -> None:
+    # Both were registered members that fell through to `return None`, so a
+    # script using them looked successful while silently losing every element.
+    source = dedent(
+        """
+        //@version=6
+        strategy("matrix", overlay=true)
+        grid = matrix.new<float>(2, 3, 2.0)
+        flipped = matrix.transpose(grid)
+        total = matrix.sum(grid)
+        shape_ok = flipped.rows() == 3 and flipped.columns() == 2
+        values_ok = flipped.get(0, 1) == 2.0 and flipped.get(2, 0) == 2.0
+        untouched = grid.rows() == 2 and grid.columns() == 3
+        if bar_index == 0
+            if shape_ok and values_ok and untouched and total == 12.0
+                strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102]),
+    )
+
+    assert report.trades
+    assert "matrix.transpose" not in report.approximations
+    assert "matrix.sum" not in report.approximations
+
+
+def test_lower_timeframe_result_supports_array_aggregates() -> None:
+    # request.security_lower_tf returns an array of intrabar values; this
+    # engine approximates it with one value, so `.sum()` must still resolve.
+    source = dedent(
+        """
+        //@version=6
+        strategy("lower timeframe", overlay=true)
+        bullArr = request.security_lower_tf(syminfo.tickerid, "1", close > close[1] ? volume : 0)
+        bullNow = nz(bullArr.sum(), 0)
+        if bar_index == 0 and bullNow >= 0
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102]),
+    )
+
+    assert report.trades
+    assert "request.security_lower_tf.aggregate" in report.approximations
+
+
 def test_color_accessor_methods_are_explicitly_approximated() -> None:
     source = dedent(
         """

@@ -325,6 +325,7 @@ _NAMESPACE_MEMBERS: dict[str, frozenset[str]] = {
         "transpose",
         "reverse",
         "sort",
+        "sum",
         "concat",
     ),
     "plot": _members(

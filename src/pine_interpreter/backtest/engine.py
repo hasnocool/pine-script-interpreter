@@ -108,6 +108,19 @@ _CHART_COLOR_NAMES = {
     "fg",
     "fg_color",
 }
+# Array aggregations Pine defines on the lower-timeframe array that
+# request.security_lower_tf returns.
+_SEQUENCE_AGGREGATES = {
+    "avg",
+    "max",
+    "median",
+    "min",
+    "mode",
+    "range",
+    "stdev",
+    "sum",
+    "variance",
+}
 _NAMESPACE_NAMES = set(NAMESPACE_MEMBERS) | {
     "array",
     "barmerge",
@@ -3006,6 +3019,32 @@ class _PineRuntime:
             ):
                 matrix[row][column] = args[3]
             return matrix
+        if name == "transpose":
+            # Pine returns a new matrix with rows and columns swapped; the
+            # source matrix is left alone.  Returning None here would look like
+            # a successful call while silently dropping every element.
+            width = max(
+                (len(row) for row in matrix if isinstance(row, list)),
+                default=0,
+            )
+            return [
+                [matrix[r][c] for r in range(len(matrix)) if c < len(matrix[r])]
+                for c in range(width)
+            ]
+        if name == "sum":
+            numbers = [
+                self._number(value)
+                for row in matrix
+                if isinstance(row, list)
+                for value in row
+                if value is not None
+            ]
+            frequency = args[1] if len(args) >= 2 and args[1] is not None else None
+            if frequency is None:
+                frequency = named.get("frequency")
+            if frequency is not None:
+                numbers = numbers[:: max(1, int(self._number(frequency)))]
+            return sum(numbers) if numbers else None
         self.approximations.add(f"matrix.{name}")
         return None
 
@@ -3035,6 +3074,17 @@ class _PineRuntime:
             # and hand the color back unchanged rather than invent a shade.
             self.approximations.add(f"color.{name}")
             return target
+        if (
+            name in _SEQUENCE_AGGREGATES
+            and isinstance(target, (int, float))
+            and not isinstance(target, bool)
+        ):
+            # request.security_lower_tf yields an array of intrabar values; this
+            # engine approximates it with a single value, so an aggregate over
+            # that array sees one element.  A bare number has no such method,
+            # so this only turns a would-be error into the array answer.
+            self.approximations.add("request.security_lower_tf.aggregate")
+            return self._object_method([target], name, (), keywords, values)
         if isinstance(target, dict) and target.get(_OBJECT_TYPE_KEY):
             methods = target.get(_OBJECT_METHODS_KEY, {})
             method = methods.get(name) if isinstance(methods, dict) else None
