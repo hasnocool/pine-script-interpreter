@@ -1994,6 +1994,25 @@ class _PineRuntime:
             return self._string_call("tostring", arguments)
         if name == "dayofweek":
             return self._time_call("weekday", arguments)
+        if name.endswith(".getPullbackBarCount") and name.rsplit(".", 1)[0] in {"l_zen", "zen"}:
+            if len(arguments) < 2:
+                return None
+            lookback = max(0, int(self._number(arguments[0])))
+            direction = int(self._number(arguments[1]))
+            count = 0
+            closes = self.history.get("close", [])
+            opens = self.history.get("open", [])
+            for offset in range(1, lookback + 1):
+                if len(closes) < offset or len(opens) < offset:
+                    continue
+                close = closes[-offset]
+                open_value = opens[-offset]
+                if close is None or open_value is None:
+                    continue
+                if (direction > 0 and close > open_value) or (direction < 0 and close < open_value):
+                    count += 1
+            self.approximations.add("library.zen.pullback_compat")
+            return count
         if name == "pvt":
             return self._current_pvt()
         if name in {"heikenashi", "heikinashi", "ha"}:

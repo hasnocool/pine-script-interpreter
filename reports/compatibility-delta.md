@@ -8,8 +8,8 @@ screening results on one short BTC/USDT 1h window.
 | Outcome | Runtime 0.3.0 | Runtime 0.3.1 | Change |
 | --- | ---: | ---: | ---: |
 | Completed-trade strategies | 862 | 1,962 | +1,100 |
-| No-order strategies | 2,583 | 3,859 | +1,276 |
-| Validation errors | 2,569 | 133 | -2,436 |
+| No-order strategies | 2,583 | 3,861 | +1,278 |
+| Validation errors | 2,569 | 131 | -2,438 |
 | Execution-limit stops | 49 | 127 | +78 |
 | Wall-clock timeout stops | 18 | 0 | -18 |
 | Runtime errors | 0 | 0 | +0 |
