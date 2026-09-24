@@ -2105,6 +2105,8 @@ class _PineRuntime:
             return None
         if name.startswith("strategy.closedtrades."):
             suffix = name[len("strategy.closedtrades.") :]
+            if arguments and self._contains_missing(arguments[0]):
+                return None
             index = int(self._number(arguments[0])) if arguments else 0
             if index < 0 or index >= len(self.broker.trades):
                 return None
@@ -2195,6 +2197,8 @@ class _PineRuntime:
             if member in {"r", "g", "b", "a"}:
                 return self._color_component(arguments[0] if arguments else None, member)
             if member == "rgb" or member == "rgba":
+                if any(self._contains_missing(value) for value in arguments):
+                    return None
                 return tuple(self._number(value) for value in arguments)
             if member == "new":
                 return arguments[0] if arguments else None
@@ -2778,12 +2782,21 @@ class _PineRuntime:
             return len(arguments[0]) if isinstance(arguments[0], (list, tuple, str, dict)) else None
         if name == "get" and len(arguments) > 1:
             target = arguments[0]
+            if self._contains_missing(arguments[1]):
+                return None
             index = int(self._number(arguments[1]))
             return (
                 target[index]
                 if isinstance(target, list) and -len(target) <= index < len(target)
                 else None
             )
+        if name == "set" and len(arguments) > 2 and isinstance(arguments[0], list):
+            if self._contains_missing(arguments[1]):
+                return arguments[0]
+            index = int(self._number(arguments[1]))
+            if -len(arguments[0]) <= index < len(arguments[0]):
+                arguments[0][index] = arguments[2]
+            return arguments[0]
         if name == "push" and len(arguments) > 1 and isinstance(arguments[0], list):
             arguments[0].append(arguments[1])
             return arguments[0]
@@ -3015,6 +3028,8 @@ class _PineRuntime:
             return [(upper + lower) / 2, upper, lower]
         if name in {"highest", "lowest", "highestbars", "lowestbars"} and len(arguments) == 1:
             self.approximations.add("ta.legacy_default_source")
+            if self._contains_missing(arguments[0]):
+                return None
             length = int(self._number(arguments[0]))
             if length <= 0:
                 self.approximations.add("ta.invalid_length_na")

@@ -5,7 +5,7 @@ This list contains up to 100 strategies from the binance:BTC/USDT:1h baseline. O
 
 - **Ranking method:** raw total return, highest first; lower drawdown breaks ties
 - **Minimum trades:** 1
-- **Strategies eligible:** 1958
+- **Strategies eligible:** 1960
 - **Candles used:** 500
 - **Runtime version:** `0.3.1`
 - **Candle period:** 2026-09-03T02:00:00+00:00 through 2026-09-23T21:00:00+00:00

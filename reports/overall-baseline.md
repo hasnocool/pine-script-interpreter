@@ -4,14 +4,14 @@
 
 This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1h candles. It is intended to establish a broad technical baseline, not to certify strategies as profitable or safe.
 
-- **Run time:** 32m 29s
+- **Run time:** 1h 0m 25s
 - **Runtime version:** `0.3.1`
 - **Strategies attempted:** 6,081
-- **Produced completed trades:** 1,958
-- **Ran without completed orders:** 3,815
-- **Could not be evaluated:** 308
-- **Saved partial interrupted results:** 121
-- **Used an explicit approximation:** 3,724
+- **Produced completed trades:** 1,960
+- **Ran without completed orders:** 3,819
+- **Could not be evaluated:** 302
+- **Saved partial interrupted results:** 123
+- **Used an explicit approximation:** 3,731
 - **Used a local Pine library:** 39
 - **Duplicate source groups:** 0
 - **Detailed shortlist:** See the companion `top-100-strategies.md` report.
@@ -23,18 +23,18 @@ This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1
 
 | Outcome | Count | What it means |
 | --- | ---: | --- |
-| Backtested with trades | 1,958 | The runtime ran and closed at least one trade. |
-| No orders | 3,815 | The runtime ran but did not close a trade on this data. |
-| Validation errors | 187 | The current runtime could not evaluate part of the strategy. |
-| Execution-limit stops | 121 | The strategy exceeded the safety step budget. |
+| Backtested with trades | 1,960 | The runtime ran and closed at least one trade. |
+| No orders | 3,819 | The runtime ran but did not close a trade on this data. |
+| Validation errors | 179 | The current runtime could not evaluate part of the strategy. |
+| Execution-limit stops | 123 | The strategy exceeded the safety step budget. |
 | Wall-clock timeout stops | 0 | The strategy exceeded the wall-clock budget; a partial snapshot may be saved. |
 | Runtime errors | 0 | An unexpected runtime problem stopped the strategy. |
 | Parse errors | 0 | The source could not be parsed. |
 
 ## Performance snapshot
 
-- **561** strategies with trades finished positive; **900** finished negative; **497** were approximately flat.
-- The median return among trade-producing strategies was **0.00%**; the average was **1230639.72%**.
+- **561** strategies with trades finished positive; **902** finished negative; **497** were approximately flat.
+- The median return among trade-producing strategies was **0.00%**; the average was **1229383.95%**.
 - The median maximum drawdown was **1.81%**.
 - The strongest eligible result was **Pump Smart Shorting Strategy\_\_rvIzBoho** at **2477665495.26%**.
 - The weakest trade-producing result was **4H CCI Strategy 1.4\_\_27DWrT5B** at **-29430038.20%**.
@@ -62,18 +62,18 @@ These are the most common reasons a strategy could not be evaluated. They descri
 
 | Blocker | Strategies | Share of recorded errors |
 | --- | ---: | ---: |
-| Runaway loop or excessive runtime steps | 121 | 39.29% |
-| imported Pine library was not found | 87 | 28.25% |
-| Required numeric value was unavailable | 41 | 13.31% |
-| unknown Pine builtin | 21 | 6.82% |
-| Unknown Pine identifier or constant | 16 | 5.19% |
-| unknown strategy member | 4 | 1.30% |
-| long stop must be below limit | 2 | 0.65% |
-| Unsupported call target | 2 | 0.65% |
-| Chart timeframe must be BELOW the signal timeframe. Recommended | 1 | 0.32% |
-| This script only works on the daily timeframe (D). | 1 | 0.32% |
-| 🚫 LANZ Strategy 1.0 is only available on the 1h timeframe. | 1 | 0.32% |
-| 🚫 LANZ Strategy 6.0 is only available on the 1-hour timeframe. | 1 | 0.32% |
+| Runaway loop or excessive runtime steps | 123 | 40.73% |
+| imported Pine library was not found | 87 | 28.81% |
+| Required numeric value was unavailable | 33 | 10.93% |
+| unknown Pine builtin | 21 | 6.95% |
+| Unknown Pine identifier or constant | 16 | 5.30% |
+| unknown strategy member | 4 | 1.32% |
+| long stop must be below limit | 2 | 0.66% |
+| Unsupported call target | 2 | 0.66% |
+| Chart timeframe must be BELOW the signal timeframe. Recommended | 1 | 0.33% |
+| This script only works on the daily timeframe (D). | 1 | 0.33% |
+| 🚫 LANZ Strategy 1.0 is only available on the 1h timeframe. | 1 | 0.33% |
+| 🚫 LANZ Strategy 6.0 is only available on the 1-hour timeframe. | 1 | 0.33% |
 
 ## Interrupted-run snapshots
 
@@ -90,7 +90,7 @@ These rows preserve accounting through the last completed bar. They are diagnost
 | Liquidity Sweep Tracker Smart Money Stop Hunts__On7JaUut | execution_limit | 482 | 0 | 100,000.00 | flat |
 | BTC Future Gamma Weighted Momentum Model (BGMM)__ksy34iRO | execution_limit | 480 | 0 | 10,000.00 | flat |
 | PMax Explorer STRATEGY & SCREENER__nHGK4Qtp | execution_limit | 449 | 0 | 10,000.00 | flat |
-| MTF MA Matrix Clean Base__qetKgBK2 | execution_limit | 448 | 0 | 100,000.00 | flat |
+| SmartDCA by TradeAkademi__KVKt8gvv | execution_limit | 449 | 2 | 100,000.00 | flat |
 
 ## Slowest executions
 
