@@ -2034,7 +2034,9 @@ class _PineRuntime:
                     else 0.0
                 )
             if member in {"breakEvenCount", "breakEvenPercent"}:
-                allowance = abs(self._number(arguments[0])) if arguments else 0.0
+                if not arguments or self._contains_missing(arguments[0]):
+                    return 0 if member == "breakEvenCount" else 0.0
+                allowance = abs(self._number(arguments[0]))
                 count = sum(
                     abs(trade.exit_price - trade.entry_price) <= allowance * 0.01
                     for trade in trades
@@ -2060,10 +2062,18 @@ class _PineRuntime:
                     for trade in trades
                 ) * 10
             if member == "truncate":
-                decimals = int(self._number(arguments[1])) if len(arguments) > 1 else 2
+                if not arguments or self._contains_missing(arguments[0]):
+                    return None
+                decimals = (
+                    int(self._number(arguments[1]))
+                    if len(arguments) > 1 and not self._contains_missing(arguments[1])
+                    else 2
+                )
                 factor = 10**decimals
                 return int(self._number(arguments[0]) * factor) / factor
             if member == "toWhole":
+                if not arguments or self._contains_missing(arguments[0]):
+                    return None
                 return self._number(arguments[0]) / 0.1
         if name.endswith(".averageRR") and name.rsplit(".", 1)[0] in {"l_zen", "zen"}:
             winners = [trade.pnl for trade in self.broker.trades if trade.pnl > 0]
@@ -4084,10 +4094,20 @@ class _PineRuntime:
 
     @staticmethod
     def _contains_missing(value: Any) -> bool:
-        if value is None:
-            return True
-        if isinstance(value, (list, tuple)):
-            return any(_PineRuntime._contains_missing(item) for item in value)
+        # Iterative with cycle detection: tolerant scripts can build
+        # self-referential containers (inexpressible in Pine), which must
+        # degrade to diagnostics rather than RecursionError crashes.
+        seen: set[int] = set()
+        stack: list[Any] = [value]
+        while stack:
+            item = stack.pop()
+            if item is None:
+                return True
+            if isinstance(item, (list, tuple)):
+                if id(item) in seen:
+                    continue
+                seen.add(id(item))
+                stack.extend(item)
         return False
 
     def _rising_falling(
@@ -4522,12 +4542,31 @@ class _PineRuntime:
     def _truthy(value: Any) -> bool:
         if value is None:
             return False
-        if isinstance(value, (list, tuple)):
-            return any(_PineRuntime._truthy(item) for item in value)
         if isinstance(value, bool):
             return value
         if isinstance(value, (int, float)):
             return value != 0
+        if isinstance(value, (list, tuple)):
+            # Iterative with cycle detection (see _contains_missing).
+            seen: set[int] = {id(value)}
+            stack: list[Any] = list(value)
+            while stack:
+                item = stack.pop()
+                if item is None:
+                    continue
+                if isinstance(item, bool):
+                    if item:
+                        return True
+                elif isinstance(item, (int, float)):
+                    if item != 0:
+                        return True
+                elif isinstance(item, (list, tuple)):
+                    if id(item) not in seen:
+                        seen.add(id(item))
+                        stack.extend(item)
+                elif item:
+                    return True
+            return False
         return bool(value)
 
     @staticmethod

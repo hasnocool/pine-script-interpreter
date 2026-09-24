@@ -1117,6 +1117,19 @@ class Parser:
                     TokenType.DEDENT,
                 }:
                     next_index += 1
+                if (
+                    self._kind_at(next_index)
+                    not in {
+                        TokenType.EOF,
+                        TokenType.ELSE,
+                        TokenType.FAT_ARROW,
+                    }
+                    and self._location_column(next_index) <= 1
+                ):
+                    # A top-level statement ends every enclosing block. Leave
+                    # the dedents in place so each outer block terminates in
+                    # turn instead of swallowing the statement.
+                    return tuple(statements)
                 if self._location_column(next_index) >= case_column and self._switch_marker_ahead(
                     next_index, allow_call=True
                 ):
@@ -1474,6 +1487,19 @@ class Parser:
                     TokenType.DEDENT,
                 }:
                     next_index += 1
+                if (
+                    self._kind_at(next_index)
+                    not in {
+                        TokenType.EOF,
+                        TokenType.ELSE,
+                        TokenType.FAT_ARROW,
+                    }
+                    and self._location_column(next_index) <= 1
+                ):
+                    # A top-level statement ends every enclosing block. Leave
+                    # the dedents in place so each outer block terminates in
+                    # turn instead of swallowing the statement.
+                    return tuple(cases)
                 if (
                     case_column is not None
                     and self._location_column(next_index) <= case_column

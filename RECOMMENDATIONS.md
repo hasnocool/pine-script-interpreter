@@ -43,21 +43,26 @@ Implemented in the current pass:
 The latest local baseline (runtime `0.3.1`, cached Binance BTC/USDT `1h`
 snapshot, 500 candles, 6,081 strategies) measured:
 
-- **1,993** strategies with completed trades, up from 862 in runtime 0.3.0
-- **3,841** no-order results
-- **121** validation errors, down from 2,569 in runtime 0.3.0
-- **126** execution-limit stops and **0** wall-clock timeout stops
-- **126** partial diagnostic snapshots
+- **2,021** strategies with completed trades, up from 862 in runtime 0.3.0
+- **3,781** no-order results
+- **142** validation errors, down from 2,569 in runtime 0.3.0
+- **137** execution-limit stops and **0** wall-clock timeout stops
+- **137** partial diagnostic snapshots
 - **0** runtime errors and **0** parse errors
 
 This is a coverage report, not a profitability claim. The compatibility delta
-is detailed in `reports/compatibility-delta.md`; it records 1,147 newly eligible
-strategies and a net gain of 1,131 completed-trade strategies. The Pine
+is detailed in `reports/compatibility-delta.md`; it records 1,176 newly eligible
+strategies and a net gain of 1,159 completed-trade strategies. The Pine
 `ta.stoch()` scalar correction, `ta.valuewhen()` argument-order correction, and
 `ta.linreg()` scalar routing changed outcomes for 66 previously completed rows;
 those rows were re-run under the corrected semantics and merged, so every row
 touching these functions (directly or through a local library) is reproducible
-under the current runtime. The target archive
+under the current runtime. A follow-up parser fix stopped `switch` statements
+from swallowing subsequent top-level declarations, so libraries such as
+ZenLibrary and the local `ta` libraries now expose all of their exported
+functions; rows that previously executed truncated code were re-run, and the
+newly visible code paths that reference still-unsupported features now report
+explicit validation errors instead of silent no-order diagnostics. The target archive
 is `Pine/TradingView`: 20,479 Pine files parse successfully, including the 6,081
 strategy files used for the baseline. The result includes feature inventories,
 source hashes, the candle content hash, and explicit approximation markers.

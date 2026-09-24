@@ -7,16 +7,16 @@ screening results on one short BTC/USDT 1h window.
 
 | Outcome | Runtime 0.3.0 | Runtime 0.3.1 | Change |
 | --- | ---: | ---: | ---: |
-| Completed-trade strategies | 862 | 1,993 | +1,131 |
-| No-order strategies | 2,583 | 3,841 | +1,258 |
-| Validation errors | 2,569 | 121 | -2,448 |
-| Execution-limit stops | 49 | 126 | +77 |
+| Completed-trade strategies | 862 | 2,021 | +1,159 |
+| No-order strategies | 2,583 | 3,781 | +1,198 |
+| Validation errors | 2,569 | 142 | -2,427 |
+| Execution-limit stops | 49 | 137 | +88 |
 | Wall-clock timeout stops | 18 | 0 | -18 |
 | Runtime errors | 0 | 0 | +0 |
 | Parse errors | 0 | 0 | +0 |
-| Partial snapshots | 67 | 126 | +59 |
+| Partial snapshots | 67 | 137 | +70 |
 
-Newly completed-trade strategies: **1,147**. 16 strategies that completed trades under 0.3.0 became no-order diagnostics or execution-limit stops under 0.3.1, for a net gain of **1,131** completed-trade strategies.
+Newly completed-trade strategies: **1,176**. 17 strategies that completed trades under 0.3.0 became no-order diagnostics or execution-limit stops under 0.3.1, for a net gain of **1,159** completed-trade strategies.
 
 ## Metadata verification note
 
@@ -32,7 +32,6 @@ The approximation markers in the final report are part of the runtime result met
 | No Nonsense NNFX VP Strategy for Back Testing Baseline jh__WyA5pZCd | 21 | 6523.00% | 8115394.68% | `drawing.handles`<br>`order.rejected_or_ignored`<br>`plotting.non_trading` |
 | Random ATR Strategy Bybit__xB5JtK12 | 15 | 4270.38% | 4270.23% | `order.rejected_or_ignored` |
 | GOLD EMA Crossover Strategy__FM0NqXZL | 21 | 2570.32% | 2595.23% | `order.rejected_or_ignored` |
-| Triple Quad Frosty v4.5__O3qQrueT | 149 | 2436.57% | 4037.52% | `drawing.handles`<br>`order.rejected_or_ignored`<br>`request.security` |
 | 5M RSI Strategy__z61K5bxD | 53 | 1425.73% | 1838.37% | `order.rejected_or_ignored`<br>`request.security` |
 | MA cross strategy__yL42H3Gp | 7 | 1349.63% | 84468.38% | `order.rejected_or_ignored` |
 | My Strategy__HjlpiM3j | 7 | 1349.63% | 84468.38% | `order.rejected_or_ignored` |
@@ -51,6 +50,7 @@ The approximation markers in the final report are part of the runtime result met
 | LinReg Slope + Acceleration Filter__XhztV83u | 8 | 99.41% | 103.29% | `drawing.handles`<br>`order.rejected_or_ignored` |
 | ETH BB + 2 Candles__nUmHknsY | 9 | 98.82% | 104.00% | `order.rejected_or_ignored`<br>`request.security` |
 | Bollinger Band Breakout Positional Strategy BN 15M__KulH3L3V | 2 | 98.30% | 101.34% | `order.rejected_or_ignored` |
+| Jomy's Gyroscopic Bands__SNEfv33f | 280 | 96.33% | 200.98% | `order.invalid_quantity_ignored`<br>`order.rejected_or_ignored` |
 
 ## Interpretation
 

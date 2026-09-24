@@ -215,3 +215,23 @@ f() =>
 
     assert len(program.statements) == 1
     assert isinstance(program.statements[0], FunctionDeclaration)
+
+
+def test_parser_does_not_swallow_sibling_after_switch_function() -> None:
+    program = parse(
+        """
+f1() =>
+    switch "a"
+        "a" => 1
+        => 2
+f2() =>
+    42
+"""
+    )
+
+    names = [
+        statement.name
+        for statement in program.statements
+        if isinstance(statement, FunctionDeclaration)
+    ]
+    assert names == ["f1", "f2"]
