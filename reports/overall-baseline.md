@@ -4,15 +4,15 @@
 
 This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1h candles. It is intended to establish a broad technical baseline, not to certify strategies as profitable or safe.
 
-- **Run time:** 1h 23m 33s
+- **Run time:** 1h 49m 48s
 - **Runtime version:** `0.3.1`
 - **Strategies attempted:** 6,081
 - **Produced completed trades:** 1,962
-- **Ran without completed orders:** 3,862
-- **Could not be evaluated:** 257
+- **Ran without completed orders:** 3,865
+- **Could not be evaluated:** 254
 - **Saved partial interrupted results:** 127
-- **Used an explicit approximation:** 3,780
-- **Used a local Pine library:** 73
+- **Used an explicit approximation:** 3,783
+- **Used a local Pine library:** 76
 - **Duplicate source groups:** 0
 - **Detailed shortlist:** See the companion `top-100-strategies.md` report.
 - **Candle period:** 2026-09-03T02:00:00+00:00 through 2026-09-23T21:00:00+00:00
@@ -24,8 +24,8 @@ This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1
 | Outcome | Count | What it means |
 | --- | ---: | --- |
 | Backtested with trades | 1,962 | The runtime ran and closed at least one trade. |
-| No orders | 3,862 | The runtime ran but did not close a trade on this data. |
-| Validation errors | 130 | The current runtime could not evaluate part of the strategy. |
+| No orders | 3,865 | The runtime ran but did not close a trade on this data. |
+| Validation errors | 127 | The current runtime could not evaluate part of the strategy. |
 | Execution-limit stops | 127 | The strategy exceeded the safety step budget. |
 | Wall-clock timeout stops | 0 | The strategy exceeded the wall-clock budget; a partial snapshot may be saved. |
 | Runtime errors | 0 | An unexpected runtime problem stopped the strategy. |
@@ -62,15 +62,15 @@ These are the most common reasons a strategy could not be evaluated. They descri
 
 | Blocker | Strategies | Share of recorded errors |
 | --- | ---: | ---: |
-| Runaway loop or excessive runtime steps | 127 | 49.42% |
-| unknown Pine builtin | 35 | 13.62% |
-| imported Pine library was not found | 33 | 12.84% |
-| Unknown Pine identifier or constant | 18 | 7.00% |
-| Required numeric value was unavailable | 17 | 6.61% |
-| unknown strategy member | 4 | 1.56% |
-| circular Pine library import | 2 | 0.78% |
-| long stop must be below limit | 2 | 0.78% |
-| Unsupported call target | 2 | 0.78% |
+| Runaway loop or excessive runtime steps | 127 | 50.00% |
+| imported Pine library was not found | 33 | 12.99% |
+| unknown Pine builtin | 32 | 12.60% |
+| Unknown Pine identifier or constant | 18 | 7.09% |
+| Required numeric value was unavailable | 17 | 6.69% |
+| unknown strategy member | 4 | 1.57% |
+| circular Pine library import | 2 | 0.79% |
+| long stop must be below limit | 2 | 0.79% |
+| Unsupported call target | 2 | 0.79% |
 | Chart timeframe must be BELOW the signal timeframe. Recommended | 1 | 0.39% |
 | The size of the real (array x) and imaginary (array y) parts of the input does n | 1 | 0.39% |
 | This script only works on the daily timeframe (D). | 1 | 0.39% |

@@ -1668,6 +1668,7 @@ class _PineRuntime:
             if isinstance(receiver, list) and expression.callee.property in {
                 "remove", "insert", "get", "set", "push", "pop", "shift", "unshift",
                 "clear", "sort", "copy", "sum", "min", "max", "avg", "size",
+                "first", "last",
             }:
                 return self._array_call(
                     expression.callee.property, [receiver, *arguments], keywords
@@ -2924,6 +2925,12 @@ class _PineRuntime:
             return indices[-1] if indices else None
         if name == "size" and arguments:
             return len(arguments[0]) if isinstance(arguments[0], (list, tuple, str, dict)) else None
+        if name == "first" and arguments:
+            target = arguments[0]
+            return target[0] if isinstance(target, list) and target else None
+        if name == "last" and arguments:
+            target = arguments[0]
+            return target[-1] if isinstance(target, list) and target else None
         if name == "get" and len(arguments) > 1:
             target = arguments[0]
             if self._contains_missing(arguments[1]):
