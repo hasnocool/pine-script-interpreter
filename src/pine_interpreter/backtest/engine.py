@@ -1906,7 +1906,7 @@ class _PineRuntime:
             return self._ta_call(alias, arguments, argument_nodes, values, node)
         if name == "stoch":
             return self._ta_call("stoch_scalar", arguments, argument_nodes, values, node)
-        if name == "linreg":
+        if name in {"linreg", "ta.linreg"}:
             return self._ta_call("linreg_scalar", arguments, argument_nodes, values, node)
         if name in {
             "sma",
@@ -3154,7 +3154,6 @@ class _PineRuntime:
         node: Node,
     ) -> Any:
         tuple_widths = {
-            "stoch": 2,
             "linreg": 2,
             "aroon": 2,
             "supertrend": 2,
@@ -3165,6 +3164,9 @@ class _PineRuntime:
             "donchian": 3,
             "dmi": 3,
         }
+        if name == "stoch":
+            # Pine Script v5 ta.stoch() returns scalar %K, not a tuple.
+            name = "stoch_scalar"
         if name == "donchian" and len(arguments) == 1:
             self.approximations.add("ta.legacy_default_source")
             length = int(self._number(arguments[0]))
@@ -3977,10 +3979,11 @@ class _PineRuntime:
                 return None
             return (self._number(current) / self._number(previous) - 1) * 100
         if name == "valuewhen" and len(arguments) > 2:
-            source_values = self._series_values_for_value(
+            # Pine Script: valuewhen(condition, source, occurrence)
+            condition_values = self._series_values_for_value(
                 arguments[0], values, argument_nodes[0] if argument_nodes else None
             )
-            condition_values = self._series_values_for_value(
+            source_values = self._series_values_for_value(
                 arguments[1], values, argument_nodes[1] if len(argument_nodes) > 1 else None
             )
             if self._contains_missing(arguments[2]):

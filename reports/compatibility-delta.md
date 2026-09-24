@@ -7,16 +7,16 @@ screening results on one short BTC/USDT 1h window.
 
 | Outcome | Runtime 0.3.0 | Runtime 0.3.1 | Change |
 | --- | ---: | ---: | ---: |
-| Completed-trade strategies | 862 | 1,962 | +1,100 |
-| No-order strategies | 2,583 | 3,865 | +1,282 |
-| Validation errors | 2,569 | 127 | -2,442 |
-| Execution-limit stops | 49 | 127 | +78 |
+| Completed-trade strategies | 862 | 1,993 | +1,131 |
+| No-order strategies | 2,583 | 3,841 | +1,258 |
+| Validation errors | 2,569 | 121 | -2,448 |
+| Execution-limit stops | 49 | 126 | +77 |
 | Wall-clock timeout stops | 18 | 0 | -18 |
 | Runtime errors | 0 | 0 | +0 |
 | Parse errors | 0 | 0 | +0 |
-| Partial snapshots | 67 | 127 | +60 |
+| Partial snapshots | 67 | 126 | +59 |
 
-Newly completed-trade strategies: **1,116**. 16 strategies that completed trades under 0.3.0 became no-order diagnostics or execution-limit stops under 0.3.1, for a net gain of **1,100** completed-trade strategies.
+Newly completed-trade strategies: **1,147**. 16 strategies that completed trades under 0.3.0 became no-order diagnostics or execution-limit stops under 0.3.1, for a net gain of **1,131** completed-trade strategies.
 
 ## Metadata verification note
 
@@ -27,6 +27,7 @@ The approximation markers in the final report are part of the runtime result met
 | Strategy | Trades | Return | Max drawdown | Approximation markers |
 | --- | ---: | ---: | ---: | --- |
 | Pump Smart Shorting Strategy__rvIzBoho | 17 | 2477665495.26% | 2770936440.38% | `drawing.handles` |
+| Moving Stop Loss mechanism + alerts to MT4 MT5__GRTIMXzJ | 35 | 20924800.00% | 865334117.10% | `order.rejected_or_ignored` |
 | [EURUSD60] BB Expansion Strategy__7yPV3OPU | 3 | 20296971.60% | 797981086.00% | `order.rejected_or_ignored`<br>`request.security` |
 | No Nonsense NNFX VP Strategy for Back Testing Baseline jh__WyA5pZCd | 21 | 6523.00% | 8115394.68% | `drawing.handles`<br>`order.rejected_or_ignored`<br>`plotting.non_trading` |
 | Random ATR Strategy Bybit__xB5JtK12 | 15 | 4270.38% | 4270.23% | `order.rejected_or_ignored` |
@@ -47,10 +48,9 @@ The approximation markers in the final report are part of the runtime result met
 | BTC Intraday Advanced Spot PRO V6__k0yPTqHH | 3 | 100.00% | 103.79% | `order.rejected_or_ignored` |
 | Smart Trend Strategy julzALGO__Sg2qyDDe | 1 | 99.90% | 100.65% | `drawing.handles`<br>`legacy.datetime_numeric`<br>`order.rejected_or_ignored` |
 | 8 30 SMA Pullback + ATR Exits (Crypto)__TlCUJRcP | 22 | 99.90% | 100.38% | `order.rejected_or_ignored` |
+| LinReg Slope + Acceleration Filter__XhztV83u | 8 | 99.41% | 103.29% | `drawing.handles`<br>`order.rejected_or_ignored` |
 | ETH BB + 2 Candles__nUmHknsY | 9 | 98.82% | 104.00% | `order.rejected_or_ignored`<br>`request.security` |
 | Bollinger Band Breakout Positional Strategy BN 15M__KulH3L3V | 2 | 98.30% | 101.34% | `order.rejected_or_ignored` |
-| Jomy's Gyroscopic Bands__SNEfv33f | 280 | 96.33% | 200.98% | `order.invalid_quantity_ignored`<br>`order.rejected_or_ignored` |
-| WMX Keltner Channels strategy__OQ7jRpHl | 4 | 94.84% | 103.34% | `order.rejected_or_ignored` |
 
 ## Interpretation
 

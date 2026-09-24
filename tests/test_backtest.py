@@ -569,8 +569,49 @@ def test_legacy_v2_helpers_named_inputs_and_tuple_series_are_compatible() -> Non
     )
 
     assert report.bars == 8
-    assert "ta.tuple_series" in report.approximations
+    # Pine Script v5 ta.stoch() returns scalar %K, so smoothing it must not
+    # fan out through the tuple-series path.
+    assert "ta.tuple_series" not in report.approximations
     assert "legacy.bool_numeric" in report.approximations
+
+
+def test_ta_stoch_returns_scalar_percent_k() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("stoch scalar", overlay=true)
+        k = ta.stoch(close, high, low, 3)
+        if bar_index == 4 and k > 0 and k < 100
+            strategy.entry("Long", strategy.long)
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102, 103, 104]),
+    )
+
+    assert len(report) == 1
+    assert "ta.tuple_series" not in report.approximations
+
+
+def test_ta_valuewhen_uses_condition_source_occurrence_order() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("valuewhen ordering", overlay=true)
+        cond = close > 101
+        latest = ta.valuewhen(cond, close, 0)
+        second = ta.valuewhen(cond, close, 2)
+        if bar_index == 4 and latest == 104 and second == 102
+            strategy.entry("Long", strategy.long)
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102, 103, 104]),
+    )
+
+    assert len(report) == 1
 
 
 def test_deterministic_random_policy_is_explicitly_marked() -> None:
