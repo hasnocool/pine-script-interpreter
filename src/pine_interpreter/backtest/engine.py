@@ -526,6 +526,11 @@ class _PineRuntime:
         self.library_dependencies.add(import_name)
         if not import_name or Path(import_name).is_absolute() or ".." in Path(import_name).parts:
             raise BacktestValidationError(f"invalid Pine library import path: {import_name!r}")
+        library_alias = (
+            import_name.split("/")[-2]
+            if import_name.split("/")[-1].isdigit()
+            else Path(import_name).name
+        )
         candidates = [
             self.library_root / f"{import_name}.pine",
             self.library_root / import_name,
@@ -555,6 +560,8 @@ class _PineRuntime:
                 if matches:
                     self.approximations.add(f"library.{import_name}.local_title_fallback")
             source_path = matches[0] if matches else None
+            if source_path is not None and matches and matches[0].stem != requested_stem:
+                self.approximations.add(f"library.{import_name}.local_title_fallback")
         if source_path is None:
             if import_name.startswith(("TradingView/ta/", "TradingView/Strategy/")):
                 alias = declaration.alias or Path(import_name).name
@@ -576,7 +583,7 @@ class _PineRuntime:
         self._library_stack = (*self._library_stack, resolved)
         try:
             library_program = _parse_source_cached(source)
-            alias = declaration.alias or resolved.stem
+            alias = declaration.alias or library_alias
             self.libraries[alias] = library_program
             self._library_imports.setdefault(id(owner), {})[alias] = library_program
             for statement in library_program.statements:

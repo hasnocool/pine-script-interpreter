@@ -4,15 +4,15 @@
 
 This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1h candles. It is intended to establish a broad technical baseline, not to certify strategies as profitable or safe.
 
-- **Run time:** 1h 5m 54s
+- **Run time:** 1h 14m 27s
 - **Runtime version:** `0.3.1`
 - **Strategies attempted:** 6,081
 - **Produced completed trades:** 1,961
-- **Ran without completed orders:** 3,833
-- **Could not be evaluated:** 287
+- **Ran without completed orders:** 3,836
+- **Could not be evaluated:** 284
 - **Saved partial interrupted results:** 125
-- **Used an explicit approximation:** 3,748
-- **Used a local Pine library:** 46
+- **Used an explicit approximation:** 3,751
+- **Used a local Pine library:** 49
 - **Duplicate source groups:** 0
 - **Detailed shortlist:** See the companion `top-100-strategies.md` report.
 - **Candle period:** 2026-09-03T02:00:00+00:00 through 2026-09-23T21:00:00+00:00
@@ -24,8 +24,8 @@ This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1
 | Outcome | Count | What it means |
 | --- | ---: | --- |
 | Backtested with trades | 1,961 | The runtime ran and closed at least one trade. |
-| No orders | 3,833 | The runtime ran but did not close a trade on this data. |
-| Validation errors | 162 | The current runtime could not evaluate part of the strategy. |
+| No orders | 3,836 | The runtime ran but did not close a trade on this data. |
+| Validation errors | 159 | The current runtime could not evaluate part of the strategy. |
 | Execution-limit stops | 125 | The strategy exceeded the safety step budget. |
 | Wall-clock timeout stops | 0 | The strategy exceeded the wall-clock budget; a partial snapshot may be saved. |
 | Runtime errors | 0 | An unexpected runtime problem stopped the strategy. |
@@ -62,12 +62,12 @@ These are the most common reasons a strategy could not be evaluated. They descri
 
 | Blocker | Strategies | Share of recorded errors |
 | --- | ---: | ---: |
-| Runaway loop or excessive runtime steps | 125 | 43.55% |
-| imported Pine library was not found | 74 | 25.78% |
-| unknown Pine builtin | 27 | 9.41% |
-| Required numeric value was unavailable | 23 | 8.01% |
-| Unknown Pine identifier or constant | 16 | 5.57% |
-| unknown strategy member | 4 | 1.39% |
+| Runaway loop or excessive runtime steps | 125 | 44.01% |
+| imported Pine library was not found | 74 | 26.06% |
+| unknown Pine builtin | 24 | 8.45% |
+| Required numeric value was unavailable | 23 | 8.10% |
+| Unknown Pine identifier or constant | 16 | 5.63% |
+| unknown strategy member | 4 | 1.41% |
 | long stop must be below limit | 2 | 0.70% |
 | Unsupported call target | 2 | 0.70% |
 | Chart timeframe must be BELOW the signal timeframe. Recommended | 1 | 0.35% |
@@ -107,7 +107,7 @@ These wall-clock measurements are profiling signals, not performance results.
 | Oscillating Market Case Study__N9bH0tbl | execution_limit | 8.775s | 250001 | 391 | 1 |
 | APEX Tester Buy Sell Strategies Basic BACKTESTER__hRcO3u2d | execution_limit | 8.769s | 250001 | 135 | 0 |
 | MASU+ v8.2 (DC+NW+ELM+VIX) [1H]__eEMttmMz | execution_limit | 8.534s | 250001 | 104 | 0 |
-| Adaptive Dual Engine Strategy Momentum + Mean Reversion [BT]__f9xLZqpF | backtested | 7.733s | 236984 | n/a | n/a |
+| Fine Tune Inputs Fourier Smoothed Hybrid Volume Spread Analysis__CHhNM62j | no_orders | 8.151s | 90745 | n/a | n/a |
 
 ## Important interpretation notes
 

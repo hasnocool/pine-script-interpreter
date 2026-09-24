@@ -44,8 +44,8 @@ The latest local baseline (runtime `0.3.1`, cached Binance BTC/USDT `1h`
 snapshot, 500 candles, 6,081 strategies) measured:
 
 - **1,961** strategies with completed trades, up from 862 in runtime 0.3.0
-- **3,833** no-order results
-- **162** validation errors, down from 2,569 in runtime 0.3.0
+- **3,836** no-order results
+- **159** validation errors, down from 2,569 in runtime 0.3.0
 - **125** execution-limit stops and **0** wall-clock timeout stops
 - **125** partial diagnostic snapshots
 - **0** runtime errors and **0** parse errors
