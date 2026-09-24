@@ -101,6 +101,13 @@ _COLOR_NAMES = {
     "white",
     "yellow",
 }
+# The `chart` namespace exposes its own color pseudo-values.
+_CHART_COLOR_NAMES = {
+    "bg",
+    "bg_color",
+    "fg",
+    "fg_color",
+}
 _NAMESPACE_NAMES = set(NAMESPACE_MEMBERS) | {
     "array",
     "barmerge",
@@ -2342,6 +2349,17 @@ class _PineRuntime:
             return self._last_number(self._ohlcv_series("close"))
         if name.startswith("chart.point"):
             return self._chart_point_call(name, arguments)
+        if name.count(".") == 2:
+            namespace, color_name, member = name.split(".")
+            if (
+                namespace == "chart"
+                and color_name in _CHART_COLOR_NAMES
+                and member in {"r", "g", "b", "a", "transp"}
+            ):
+                # Color components are not modelled; hand the color back and
+                # say so rather than invent a shade.
+                self.approximations.add(f"color.{member}")
+                return color_name
         if name.startswith(
             ("line.", "label.", "box.", "table.", "ticker.", "draw.", "linefill.", "polyline.")
         ):
@@ -2991,6 +3009,14 @@ class _PineRuntime:
         self.approximations.add(f"matrix.{name}")
         return None
 
+    @staticmethod
+    def _is_color_value(target: Any) -> bool:
+        """Whether a receiver is one of this engine's color representations."""
+
+        if isinstance(target, tuple) and 3 <= len(target) <= 4:
+            return all(isinstance(channel, (int, float)) for channel in target)
+        return isinstance(target, str) and (target in _COLOR_NAMES or target in _CHART_COLOR_NAMES)
+
     def _object_method(
         self,
         target: Any,
@@ -3004,6 +3030,11 @@ class _PineRuntime:
             # for example a `var box handle = na` that is styled before its
             # first assignment.
             return None
+        if name in {"r", "g", "b", "a", "transp"} and self._is_color_value(target):
+            # Color components are not modelled, so report the approximation
+            # and hand the color back unchanged rather than invent a shade.
+            self.approximations.add(f"color.{name}")
+            return target
         if isinstance(target, dict) and target.get(_OBJECT_TYPE_KEY):
             methods = target.get(_OBJECT_METHODS_KEY, {})
             method = methods.get(name) if isinstance(methods, dict) else None

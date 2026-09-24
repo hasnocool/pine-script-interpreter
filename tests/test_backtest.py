@@ -1030,6 +1030,29 @@ def test_drawing_handles_keep_nonessential_methods_explicitly_approximated() -> 
     assert "drawing.handles" in report.approximations
 
 
+def test_color_accessor_methods_are_explicitly_approximated() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("colors", overlay=true)
+        shaded = chart.fg_color.transp(50)
+        faded = color.rgb(10, 20, 30).transp(25)
+        plain = str.length("abcd")
+        line.new(0, 1, 2, 2, color=shaded)
+        line.new(0, 3, 2, 4, color=faded)
+        if bar_index == 0 and plain == 4
+            strategy.entry("Long", strategy.long, qty=1)
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102]),
+    )
+
+    assert report.trades
+    assert "color.transp" in report.approximations
+
+
 def test_a_zero_or_negative_exit_quantity_is_a_no_op() -> None:
     # Computed partial exits such as `qty = position_size - first_slice` reach
     # zero while flat.  Pine treats that as "nothing to exit" rather than an
