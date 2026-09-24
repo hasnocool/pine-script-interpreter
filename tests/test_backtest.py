@@ -1142,6 +1142,85 @@ def test_strategy_trade_report_members_return_numbers() -> None:
     assert "strategy.avg_trade_percent" in report.approximations
 
 
+def test_strategy_contract_and_margin_members_return_numbers() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("contract members", overlay=true)
+        if bar_index == 0
+            label = str.tostring(strategy.max_contracts_held_all) + "," +
+                 str.tostring(strategy.max_contracts_held_long) + "," +
+                 str.tostring(strategy.max_contracts_held_short) + "," +
+                 str.tostring(strategy.margin_liquidation_price) + "," +
+                 str.tostring(strategy.convert_to_account(2.0))
+            if label != ""
+                strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 2
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 101, 102, 103])
+    )
+    assert len(report) == 1
+    assert "strategy.convert_to_account" in report.approximations
+
+
+def test_table_merge_cells_is_accepted_on_a_table_handle() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("merge cells", overlay=true)
+        var table panel = table.new(position.top_right, 2, 2)
+        if barstate.islast
+            panel.cell(0, 0, "title")
+            panel.merge_cells(0, 0, 1, 0)
+            strategy.entry("Long", strategy.long, qty=1)
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 101, 102, 103])
+    )
+    assert len(report) == 1
+
+
+def test_matrix_get_set_and_scalar_mult_use_row_column_indexing() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("matrix methods", overlay=true)
+        var m = matrix.new<int>(2, 2, 0)
+        m.set(0, 1, 4)
+        m.set(1, 1, 6)
+        scaled = m.mult(2.0)
+        if bar_index == 0 and scaled.get(0, 1) == 8 and scaled.get(1, 1) == 12
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(source, make_candles([100, 101]))
+    assert len(report) == 1
+
+
+def test_array_slice_and_binary_search_return_values() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("array methods", overlay=true)
+        var arr = array.from(1, 3, 5, 7)
+        window = arr.slice(1, 3)
+        position = arr.binary_search_leftmost(4)
+        if bar_index == 0 and window.size() == 2 and position == 2
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(source, make_candles([100, 101]))
+    assert len(report) == 1
+
+
 def test_position_avg_price_is_na_when_flat() -> None:
     source = dedent(
         """

@@ -1683,6 +1683,25 @@ class _PineRuntime:
         if name == "largestloss":
             return min((trade.pnl for trade in trades), default=0.0)
         if name in {
+            "max_contracts_held_all",
+            "max_contracts_held_long",
+            "max_contracts_held_short",
+        }:
+            # The broker keeps no peak-position history, so report the live
+            # position rather than inventing a running maximum.
+            self.approximations.add(f"strategy.{name}")
+            if position is None:
+                return 0.0
+            if name == "max_contracts_held_long" and position.side != "long":
+                return 0.0
+            if name == "max_contracts_held_short" and position.side != "short":
+                return 0.0
+            return abs(position.quantity)
+        if name == "margin_liquidation_price":
+            # No margin model, so a margin call can never trigger.
+            self.approximations.add("strategy.margin_liquidation_price")
+            return 0.0
+        if name in {
             "max_cons_loss_days",
             "max_cons_win_days",
             "max_cons_loss_trades",
@@ -1747,26 +1766,37 @@ class _PineRuntime:
                 receiver = self._evaluate(expression.callee.object, values)
             except BacktestValidationError:
                 receiver = None
-            if isinstance(receiver, list) and expression.callee.property in {
-                "remove",
-                "insert",
-                "get",
-                "set",
-                "push",
-                "pop",
-                "shift",
-                "unshift",
-                "clear",
-                "sort",
-                "copy",
-                "sum",
-                "min",
-                "max",
-                "avg",
-                "size",
-                "first",
-                "last",
-            }:
+            if (
+                isinstance(receiver, list)
+                and expression.callee.property
+                in {
+                    "remove",
+                    "insert",
+                    "get",
+                    "set",
+                    "push",
+                    "pop",
+                    "shift",
+                    "unshift",
+                    "clear",
+                    "sort",
+                    "copy",
+                    "sum",
+                    "min",
+                    "max",
+                    "avg",
+                    "size",
+                    "first",
+                    "last",
+                }
+                and not (
+                    # A matrix is a list of rows; `get`/`set` take (row, column)
+                    # and must not be handled as the 1-D array fast path.
+                    expression.callee.property in {"get", "set"}
+                    and receiver
+                    and isinstance(receiver[0], list)
+                )
+            ):
                 return self._array_call(
                     expression.callee.property, [receiver, *arguments], keywords
                 )
@@ -2426,6 +2456,11 @@ class _PineRuntime:
             cash = self._number(arguments[0]) if arguments else self.initial_cash
             close = self._last_number(self._ohlcv_series("close"))
             return cash / close if close else 0.0
+        if name == "strategy.convert_to_account":
+            # The synthetic exchange quotes the account and the symbol in the
+            # same currency, so the conversion is the identity.
+            self.approximations.add("strategy.convert_to_account")
+            return self._number(arguments[0]) if arguments else 0.0
         if name == "strategy.opentrades":
             return self.broker.position
         if name == "strategy.closedtrades":
@@ -2940,7 +2975,14 @@ class _PineRuntime:
                 elif arguments:
                     target[field_name] = arguments[0]
                 return target
-            if name in {"delete", "cell", "clear", "set_bgcolor", "set_border_color"}:
+            if name in {
+                "delete",
+                "cell",
+                "clear",
+                "merge_cells",
+                "set_bgcolor",
+                "set_border_color",
+            }:
                 return None
         method = self.methods.get(name)
         if method is not None:
@@ -2966,6 +3008,24 @@ class _PineRuntime:
                 "reshape",
             }:
                 return self._matrix_method_call(name, [target, *arguments], keywords)
+            if name == "mult" and target and isinstance(target[0], list) and arguments:
+                # `matrix.mult()` scales by a scalar or multiplies by another
+                # matrix of matching inner dimensions.
+                if isinstance(arguments[0], list):
+                    inner = arguments[0]
+                    for row in range(len(target)):
+                        for column in range(len(target[row])):
+                            target[row][column] = sum(
+                                self._number(target[row][index])
+                                * self._number(inner[index][column])
+                                for index in range(len(inner))
+                            )
+                    return target
+                factor = self._number(arguments[0])
+                for row in target:
+                    for column in range(len(row)):
+                        row[column] = self._number(row[column]) * factor
+                return target
             if target and isinstance(target[0], list) and name in {"get", "set"}:
                 if name == "get" and len(arguments) >= 2:
                     row = int(self._number(arguments[0]))
@@ -3055,6 +3115,28 @@ class _PineRuntime:
             if name == "fill" and arguments:
                 target[:] = [arguments[0]] * len(target)
                 return target
+            if name == "slice" and arguments:
+                start = int(self._number(arguments[0]))
+                end = int(self._number(arguments[1])) if len(arguments) >= 2 else None
+                return target[start:end]
+            if name in {"binary_search_leftmost", "binary_search_rightmost"} and arguments:
+                needle = self._number(arguments[0])
+                low, high = 0, len(target)
+                while low < high:
+                    middle = (low + high) // 2
+                    current = self._number(target[middle])
+                    if name == "binary_search_leftmost":
+                        if current < needle:
+                            low = middle + 1
+                        else:
+                            high = middle
+                    elif current <= needle:
+                        low = middle + 1
+                    else:
+                        high = middle
+                return low
+            if name == "concat" and arguments and isinstance(arguments[0], list):
+                return target + arguments[0]
         if isinstance(target, dict):
             if name == "get" and arguments:
                 return target.get(self._map_key(arguments[0]))
