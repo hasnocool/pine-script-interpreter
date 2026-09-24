@@ -4,14 +4,14 @@
 
 This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1h candles. It is intended to establish a broad technical baseline, not to certify strategies as profitable or safe.
 
-- **Run time:** 1h 0m 25s
+- **Run time:** 1h 2m 54s
 - **Runtime version:** `0.3.1`
 - **Strategies attempted:** 6,081
 - **Produced completed trades:** 1,960
-- **Ran without completed orders:** 3,819
-- **Could not be evaluated:** 302
-- **Saved partial interrupted results:** 123
-- **Used an explicit approximation:** 3,731
+- **Ran without completed orders:** 3,827
+- **Could not be evaluated:** 294
+- **Saved partial interrupted results:** 125
+- **Used an explicit approximation:** 3,741
 - **Used a local Pine library:** 39
 - **Duplicate source groups:** 0
 - **Detailed shortlist:** See the companion `top-100-strategies.md` report.
@@ -24,9 +24,9 @@ This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1
 | Outcome | Count | What it means |
 | --- | ---: | --- |
 | Backtested with trades | 1,960 | The runtime ran and closed at least one trade. |
-| No orders | 3,819 | The runtime ran but did not close a trade on this data. |
-| Validation errors | 179 | The current runtime could not evaluate part of the strategy. |
-| Execution-limit stops | 123 | The strategy exceeded the safety step budget. |
+| No orders | 3,827 | The runtime ran but did not close a trade on this data. |
+| Validation errors | 169 | The current runtime could not evaluate part of the strategy. |
+| Execution-limit stops | 125 | The strategy exceeded the safety step budget. |
 | Wall-clock timeout stops | 0 | The strategy exceeded the wall-clock budget; a partial snapshot may be saved. |
 | Runtime errors | 0 | An unexpected runtime problem stopped the strategy. |
 | Parse errors | 0 | The source could not be parsed. |
@@ -62,18 +62,18 @@ These are the most common reasons a strategy could not be evaluated. They descri
 
 | Blocker | Strategies | Share of recorded errors |
 | --- | ---: | ---: |
-| Runaway loop or excessive runtime steps | 123 | 40.73% |
-| imported Pine library was not found | 87 | 28.81% |
-| Required numeric value was unavailable | 33 | 10.93% |
-| unknown Pine builtin | 21 | 6.95% |
-| Unknown Pine identifier or constant | 16 | 5.30% |
-| unknown strategy member | 4 | 1.32% |
-| long stop must be below limit | 2 | 0.66% |
-| Unsupported call target | 2 | 0.66% |
-| Chart timeframe must be BELOW the signal timeframe. Recommended | 1 | 0.33% |
-| This script only works on the daily timeframe (D). | 1 | 0.33% |
-| 🚫 LANZ Strategy 1.0 is only available on the 1h timeframe. | 1 | 0.33% |
-| 🚫 LANZ Strategy 6.0 is only available on the 1-hour timeframe. | 1 | 0.33% |
+| Runaway loop or excessive runtime steps | 125 | 42.52% |
+| imported Pine library was not found | 87 | 29.59% |
+| Required numeric value was unavailable | 23 | 7.82% |
+| unknown Pine builtin | 21 | 7.14% |
+| Unknown Pine identifier or constant | 16 | 5.44% |
+| unknown strategy member | 4 | 1.36% |
+| long stop must be below limit | 2 | 0.68% |
+| Unsupported call target | 2 | 0.68% |
+| Chart timeframe must be BELOW the signal timeframe. Recommended | 1 | 0.34% |
+| This script only works on the daily timeframe (D). | 1 | 0.34% |
+| 🚫 LANZ Strategy 1.0 is only available on the 1h timeframe. | 1 | 0.34% |
+| 🚫 LANZ Strategy 6.0 is only available on the 1-hour timeframe. | 1 | 0.34% |
 
 ## Interrupted-run snapshots
 
@@ -89,8 +89,8 @@ These rows preserve accounting through the last completed bar. They are diagnost
 | supertrend advance__Ld0TePxg | execution_limit | 486 | 0 | 10,000.00 | flat |
 | Liquidity Sweep Tracker Smart Money Stop Hunts__On7JaUut | execution_limit | 482 | 0 | 100,000.00 | flat |
 | BTC Future Gamma Weighted Momentum Model (BGMM)__ksy34iRO | execution_limit | 480 | 0 | 10,000.00 | flat |
+| Daily Bias 5 Min by sam86@live.com__kZzDTCDd | execution_limit | 465 | 4 | 10,000.00 | flat |
 | PMax Explorer STRATEGY & SCREENER__nHGK4Qtp | execution_limit | 449 | 0 | 10,000.00 | flat |
-| SmartDCA by TradeAkademi__KVKt8gvv | execution_limit | 449 | 2 | 100,000.00 | flat |
 
 ## Slowest executions
 

@@ -2379,6 +2379,9 @@ class _PineRuntime:
         return 0.0
 
     def _math_call(self, name: str, arguments: Sequence[Any]) -> Any:
+        if name != "sum" and any(isinstance(value, (list, tuple)) for value in arguments):
+            self.approximations.add("math.tuple_input_na")
+            return None
         if name == "sum" and arguments and isinstance(arguments[0], (list, tuple)):
             return sum(self._number(value) for value in arguments[0] if value is not None)
         if arguments and isinstance(arguments[0], (list, tuple)) and name != "sum":
