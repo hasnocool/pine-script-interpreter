@@ -12,6 +12,7 @@ the entire TradingView API.
 from __future__ import annotations
 
 import math
+import re
 import sys
 import time
 from collections.abc import Iterable, Mapping, Sequence
@@ -565,6 +566,23 @@ class _PineRuntime:
                     for candidate in self.library_root.rglob("*.pine")
                     if candidate.stem.split("__", 1)[0].casefold() == requested_stem
                 )
+                # Several archive files can share a title prefix.  A candidate
+                # that declares `library("<title>")` is the real one, so prefer
+                # it over an alphabetically earlier namesake.  The exact case
+                # wins first: TradingView's built-in `ta` library is lowercase.
+                declared = [
+                    candidate
+                    for candidate in matches
+                    if _declares_library_title(candidate, requested_stem)
+                ]
+                if not declared:
+                    declared = [
+                        candidate
+                        for candidate in matches
+                        if _declares_library_title_any_case(candidate, requested_stem)
+                    ]
+                if declared:
+                    matches = declared
                 if matches:
                     self.approximations.add(f"library.{import_name}.local_title_fallback")
             source_path = matches[0] if matches else None
@@ -3167,7 +3185,7 @@ class _PineRuntime:
             if name == "put" and len(arguments) >= 2:
                 target[self._map_key(arguments[0])] = arguments[1]
                 return arguments[1]
-            if name == "contains_key" and arguments:
+            if name in {"contains", "contains_key"} and arguments:
                 return self._map_key(arguments[0]) in target
             if name == "remove" and arguments:
                 return target.pop(self._map_key(arguments[0]), None)
@@ -5068,6 +5086,32 @@ class _PineRuntime:
 @lru_cache(maxsize=4096)
 def _parse_source_cached(source: str) -> Program:
     return Parser(Lexer(source).tokenize()).parse()
+
+
+@lru_cache(maxsize=4096)
+def _declares_library_title(path: Path, title: str) -> bool:
+    """Report whether a Pine file declares `library("<title>")`."""
+
+    return _library_title_pattern(title, True).search(_read_library_source(path)) is not None
+
+
+@lru_cache(maxsize=4096)
+def _declares_library_title_any_case(path: Path, title: str) -> bool:
+    """Report whether a Pine file declares `library("<title>")`, ignoring case."""
+
+    return _library_title_pattern(title, False).search(_read_library_source(path)) is not None
+
+
+def _library_title_pattern(title: str, exact_case: bool) -> re.Pattern[str]:
+    flags = 0 if exact_case else re.IGNORECASE
+    return re.compile(rf'library\(\s*"{re.escape(title)}"\s*\)', flags)
+
+
+def _read_library_source(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return ""
 
 
 def clear_parse_cache() -> None:

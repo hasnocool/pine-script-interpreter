@@ -307,6 +307,64 @@ def test_batch_propagates_library_roots_and_records_dependencies(tmp_path: Path)
     assert result.features
 
 
+def test_versioned_import_prefers_the_library_that_declares_the_title(tmp_path: Path) -> None:
+    # Several archive files can share a title prefix.  The versioned import
+    # `TradingView/ta/5` must land on the file that declares `library("ta")`,
+    # not on an alphabetically earlier namesake.
+    library_dir = tmp_path / "Libraries"
+    library_dir.mkdir()
+    (library_dir / "TA__zOther.pine").write_text(
+        dedent(
+            """
+            //@version=6
+            library("TA")
+            export decoy() => 0.0
+            """
+        ),
+        encoding="utf-8",
+    )
+    (library_dir / "ta__good.pine").write_text(
+        dedent(
+            """
+            //@version=6
+            library("ta")
+            export wanted() => 42.0
+            """
+        ),
+        encoding="utf-8",
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True), library_root=library_dir).run(
+        dedent(
+            """
+            //@version=6
+            strategy("versioned import", overlay=true)
+            import TradingView/ta/5 as tv
+            if tv.wanted() == 42
+                strategy.entry("Long", strategy.long, qty=1)
+            """
+        ),
+        make_candles([100, 101]),
+    )
+    assert len(report) == 1
+
+
+def test_map_contains_reports_membership(tmp_path: Path) -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("map contains", overlay=true)
+        var table counts = table.new<string, int>()
+        counts.put("a", 1)
+        if bar_index == 0 and counts.contains("a") and not counts.contains("b")
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(source, make_candles([100, 101]))
+    assert len(report) == 1
+
+
 def test_input_overrides_allow_bounded_parameter_research() -> None:
     source = dedent(
         """
