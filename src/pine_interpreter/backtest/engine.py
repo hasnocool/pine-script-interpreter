@@ -2996,6 +2996,11 @@ class _PineRuntime:
         keywords: Mapping[str, Any] | None = None,
         values: dict[str, Any] | None = None,
     ) -> Any:
+        if target is None:
+            # Pine treats a method call on `na` as a no-op that yields `na`,
+            # for example a `var box handle = na` that is styled before its
+            # first assignment.
+            return None
         if isinstance(target, dict) and target.get(_OBJECT_TYPE_KEY):
             methods = target.get(_OBJECT_METHODS_KEY, {})
             method = methods.get(name) if isinstance(methods, dict) else None
