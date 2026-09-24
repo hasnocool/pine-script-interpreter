@@ -2,103 +2,103 @@
 
 | Name | Status | Trades | Return | Drawdown | Runtime | Source hash |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
-| MACD controlled risk strategy example__QPKWPpDS | backtested | 4 | 0.00% | 0.00% | 0.333s | `588756cf871fbd9b9d6ef21c4df2d22bcf0b1d565e19915cb4111dfc2ca9bebd` |
-| EMA 1 & SALMA Intersection Strategy__5rL7ueEq | backtested | 26 | 0.00% | 0.00% | 0.242s | `3e8a217ba0868ad8606ae4ff142458a3efd48ffd515a06af9f933d6b3616cab7` |
-| Ribbon Cross Strategy__BplsmJNL | backtested | 13 | 0.00% | 0.00% | 0.175s | `468bd12e940855359543d38235f234a3bcb673d092ee5860588028b65e08259d` |
-| GEMINI QUANT PRO Final__uSO9nAI2 | backtested | 13 | 0.00% | 0.00% | 0.411s | `538908d487e214dfc0804da66ebddafb5cc2cf047dc2728cc362f3c70927f377` |
-| DNSE VN301!, SMA & EMA Cross Strategy__KfJuq9em | backtested | 8 | 0.00% | 0.00% | 0.204s | `a74bd335d549c0db49992c3f36b20f716a51faaaf4b5c5724b33771498d84790` |
-| Dual Momentum Strategy__wFRnnlQr | backtested | 500 | -0.00% | 0.00% | 0.134s | `5df7408e8c5425f300fa405404c609652c70f64a406d0941313c4106172bcd71` |
-| Derivative Based Trends__IU8WmvbS | backtested | 249 | -0.00% | 0.00% | 0.156s | `2ed3a198b2bce25db8bdb6917984b50f73c7008d574724d60256fb7fbeff2631` |
-| MACD Crossover Strategy__nXAGBlDH | backtested | 1 | -0.00% | 0.00% | 0.273s | `ceff09ef7a9a529fc1d11aecb30c57ef8a0dfab550526598771e864891a55b54` |
-| grid strategy long__6Nayl7hU | backtested | 1 | -0.00% | 0.00% | 0.306s | `fb4b7d0f19612c50c8716f961d8d827dce54f7a0001117d719bbee074ebd7077` |
-| Stoch RSI + RSI Auto Buy Bot (XAUUSD 20 USD SL + Break Even) WS__FRPGni5D | backtested | 20 | 0.00% | 0.00% | 0.283s | `89feaeda22df168469f0f921cc2b40af1c5fafd7ad67163022875d3dda85cd67` |
-| BB & RSI Trailing Stop Strategy__HaBQiJKd | backtested | 21 | 0.00% | 0.00% | 0.197s | `4f494c095838b8a62414c739b557212af5f81b8c445171742fb0f2b749bb07e2` |
-| Double Bollinger Bands Strategy investalot__pJ78II2w | backtested | 186 | -0.00% | 0.00% | 0.142s | `f3e70d529ddce655e77137e02c858a117d73cb1fb4a2ef468c6b420f979bf363` |
-| Volatility Expansion Breakout__zhEefWDB | backtested | 25 | 0.00% | 0.00% | 0.441s | `7b58be11bfe934033123d21692811cc015e1e9db62cf763d41fdb9f78afe0ccc` |
-| Strict EMA Wick Pullback Trend Continuation__CscMmpyc | backtested | 75 | 0.00% | 0.00% | 0.225s | `ff11c6dadd2e1f5cf98b94f556f4dd9328588c5a0c7a66514ab69fee1e16922f` |
-| BONK 1H Long Volatility Strategy__9eAe3a0B | backtested | 2 | -0.00% | 0.00% | 0.566s | `3884af882b02f4a891588ed767c647643977c922a8ff4372dbf02c9dc372f1f8` |
-| Ahsan Tufail Precise MA Crossover Filter for Reliable Signals__M6Pz1zvt | backtested | 2 | -0.00% | 0.00% | 0.342s | `e83bac105c45e64a2b80fbeaf02cd82b47f3d349fecece012f68bebb3c11e0d1` |
-| SMC Liquidity Grab Pro__WZ4s1MRC | backtested | 241 | -0.00% | 0.00% | 0.222s | `610fadc4ecdf7301e74bbfc50e8b433e21efa6ec9c11a06344e5463cf3a1e814` |
-| Aggresive Scalper Swing Crypto Strategy__2Rx9y2VQ | backtested | 4 | -0.01% | 0.01% | 0.381s | `dc014d8e214afafe4cfb240c1c6f737ce7e0055a675a56bb768ba88ae2d83d32` |
-| 5 ema strategy__EaZHR7q6 | backtested | 4 | -0.01% | 0.01% | 0.158s | `edaf1ecac652d6dbff6960204489452a774a8df1bf093cc1c4776c4d61485918` |
-| Seitwärtsdoppelpenetration__95yV2t8V | backtested | 4 | -0.01% | 0.01% | 0.153s | `096dc8dbbc7116d907a391627e9be127fb6d4dd738e0a68c4b4e90d9c19f315f` |
-| Ichimoku Crosses RSI AIT__kGjP9Erw | backtested | 5 | -0.01% | 0.01% | 0.313s | `d66f1890b3d04515decf98e6f0e701abb918be9fc6f658abfd7de9b8c507ef95` |
-| Narrow Range + Inside Day, Short Only Strategy (by ChartArt)__abjeWQD5 | backtested | 6 | -0.01% | 0.01% | 0.116s | `b852a531ef01756284a3865331b1af8c2cb4790396d1e31f85d4e9a5191fe916` |
-| BTC WaveTrend R R=1 1.5__P1BEGIzN | backtested | 7 | -0.01% | 0.01% | 0.212s | `d4998465fb0a574438289f4177e5bb00892e74e99873254775f6233a6d099375` |
-| Swing Failure Reversal Strategy__frs4y2bm | backtested | 7 | -0.01% | 0.01% | 0.139s | `23ed82d40fe84bea5087f126394620863eb42c00ed676657103516d23b14e0bb` |
-| BTC Trading Robot__Lomcxylm | backtested | 13 | -0.01% | 0.01% | 0.136s | `b25ef9e63d703906119191d97fedf5d035c8fd453242dd21db917bd6a5813aeb` |
-| moonshot hypertrender (supertrend strategy)__SxY5Jjbw | backtested | 10 | -0.02% | 0.02% | 1.074s | `b133630edd9c52ff3b7bdd55170f4f94d97702f35f9519f257edc6dca64a830a` |
-| Bollinger Bands Strategy with StopLoss__rxIfUmEC | backtested | 15 | 0.00% | 0.02% | 0.280s | `bd2c93a8601e05afd064fc939836bf1d56ceaeef8e6ac4643a345e8e22211b0a` |
-| MovingAvg Cross__oMakInVP | backtested | 11 | -0.02% | 0.02% | 0.128s | `02444ffb9d56c252248f297a809df2be3d409cf608a7fd30ea870af87c2041f7` |
-| Narrow Range + Inside Day, Long Only Strategy (by ChartArt)__Dln4aFaM | backtested | 11 | -0.02% | 0.02% | 0.169s | `43e23502c9ee7b2c7ced253f6f6bfc4fc16d91e87501d18e61a9a23627d870c7` |
-| VWAPStrategy__t1lk7Uvk | backtested | 12 | -0.02% | 0.02% | 0.416s | `92fff9f2f7b3f4a15275c8db3902228054300b065ba81b574ff629b381d0b9c9` |
-| sebbiottino Trailing Stop so good ger40 1m__osDZvK10 | backtested | 12 | -0.02% | 0.02% | 0.443s | `3d1c691c504b3fca9b4fdaf1c1e2a4dd87f153ec2506e8452b252c28bb7b2cc1` |
-| ATH 52W Mechanical Breakout Strategy__6G3mRUr0 | backtested | 42 | 0.00% | 0.02% | 0.263s | `d684caa424bd79ab3372b1fee3864b4ebf7debfe0caf6c77292362589c6d010d` |
-| Big Runner__HZCxKOpE | backtested | 4 | 0.00% | 0.02% | 0.267s | `3b299417fc6343f14633fe8cdc12ee4f322e9ecc8285ce7306defb2916f15e15` |
-| Divergent trader V2 ATH 52W Mechanical Breakout Strategy__2CKt3w9r | backtested | 42 | 0.00% | 0.02% | 0.262s | `5451fbd8a3fabfef621dea8e98904a3d88e57ca51ff0206389f0a5cb5ef6d067` |
-| EXPANSION MODEL__Qu5RWcEi | backtested | 23 | 0.00% | 0.02% | 0.240s | `f8aa6f2b482923f0c189dceb83ca96cc873b9e42f43cbb54f761dae34c580e64` |
-| Parallax Covenant Strategy [JOAT]__pjUZ1vMs | backtested | 25 | 0.00% | 0.02% | 1.919s | `670d0a20ab6049426c053fd20f405c48a46ce31e0cc32ba407fa6060eeb87bf1` |
-| Price Based Z Trend Strategy [presentTrading]__IrnAzTAU | backtested | 8 | 0.00% | 0.02% | 0.341s | `417733098918a8637482a8cf11b6e29b0c57d0555d82966ae5015a9f1b05af4a` |
-| RSI Pro+ (Bear market, financial crisis and so on Edition__eRUnOwOy | backtested | 1 | 0.00% | 0.02% | 0.335s | `870fa291683f3ac82ad1a68671e7ecac45eedfaa5ecce64e14bdd1705da3450b` |
-| Moja Strategia Harami BB__1i9HDUUV | backtested | 26 | 0.00% | 0.02% | 0.288s | `fd3da526a177c2c45c8df803f6ca8545f516385540e830903771eb869fab6c2c` |
-| Moja Strategia Harami BB__Cf6gXdy1 | backtested | 26 | 0.00% | 0.02% | 0.286s | `1b03719c96ff3a094329e225dad3f62e13546419a4996e822ee59079b209e887` |
-| Contrarian DC Strategy w Entry SL Pause and TrailingStop__DApq7rJu | backtested | 100 | -0.00% | 0.02% | 0.103s | `3f95c73c429eaf2fa006208a471ed66f00b16ce9608ec23039ad6b022682b771` |
-| BarRange Strategy__3A04qat2 | backtested | 14 | -0.02% | 0.02% | 0.077s | `9da99006f8f6caf38732e2be950c5287ae372a5b9710a7bafdc6cd506921c275` |
-| Warm Up__5q0z53EQ | backtested | 15 | -0.02% | 0.02% | 0.107s | `cded63361eb34b6d89a94b6de5257e6837e0e6118f53b3784f0522500b471426` |
-| Forex Master (EUR USD)__Figho5B3 | backtested | 18 | -0.03% | 0.03% | 0.311s | `f04ecd90d3b793cbe300f26b9bf229422ce76562fb9db9c8b8cef0e346b37994` |
-| GENESIS__pgYRZCYi | backtested | 21 | -0.03% | 0.03% | 0.138s | `277aa9838a58a77b2bcd3d02d32dd810002bc4ae62108c876967329d6ab8ca63` |
-| JetzGiantz Strategy__V3W4iuYl | backtested | 21 | -0.03% | 0.03% | 0.152s | `193c745a00d377512d890ddc99287d4dca0420d783f1b5f7d86347d06ffce8aa` |
-| Hausky Simple MA Strategy EURUSD 1H__uQiJu1ls | backtested | 22 | -0.03% | 0.03% | 0.046s | `134bb466a5696071979f62437b5d10677039c6e01a3957a34558418529999e39` |
-| Trend Bounce [racer8]__xV3t2X7R | backtested | 22 | -0.04% | 0.04% | 0.155s | `02903bbf4967af41d700729907d5ddbaa421e1b00f1091e0d5190e7e82964e87` |
-| my scr__ptNWjR4L | backtested | 23 | -0.04% | 0.04% | 0.080s | `2ee7b3bd204dfdb4789d981f640d2e1a930333410f46a444d444a695174a71f7` |
-| Aroon Oscillator strategy by Saucius__s462P5NL | backtested | 23 | -0.04% | 0.04% | 0.158s | `d46d9ef8248ddd403f0e3b1917df2432d67dd5d438bb3a98a490b226421bf75b` |
-| Swing Trades Validator The One Trader__gR2ZgtWc | backtested | 23 | -0.04% | 0.04% | 0.722s | `812668b1666d74342aa55027f01b745881e1cba325f040aad659e5105c1f4ef8` |
-| SAR V1__sAPlGuft | backtested | 25 | -0.04% | 0.04% | 0.050s | `3ff2ac383c48deb5d34727dba8321f0592e527674c3cb5c1d08ab0f263354c25` |
-| Ajay Nayak EMA ATR Trailing__7HirZVZD | backtested | 27 | -0.04% | 0.04% | 0.342s | `705af087f1e7c51f3e47950f177c25df8e14aa285816c27430fb8ff13b6b6ad1` |
-| Thesis EMLYON Daily Crypto Moriceau indicator__COqdVQXZ | backtested | 27 | -0.04% | 0.04% | 0.255s | `ccad90c4774c6107c62dd555b8a0dc9ae1f1b68cca615947550292675be70933` |
-| Forex Master v4.0 (EUR USD Mean Reversion Algorithm)__AIZqyS45 | backtested | 28 | -0.04% | 0.04% | 0.367s | `5fc0e001b7a1e4428dd1841c9a4455791ef0b591f209b82cf5b2d5528d7a0fc8` |
-| Forex Master v2.0 (EUR USD)__5Dz26lv7 | backtested | 29 | -0.05% | 0.05% | 0.190s | `b864976e4eb550add070b0572b0b94a135f6bd70165473c0c10b40619f8e7921` |
-| Multi Timeframe MACD Strategy ver 1.0__WqzrfL2Q | backtested | 31 | -0.05% | 0.05% | 0.649s | `85d1089db02fafdf8e2480bb399ab8bf61b2107a018e3347e138e9553c48d835` |
-| SuperTREX strategy__K3U9opwQ | backtested | 7 | 0.00% | 0.05% | 0.941s | `0cf2399aeff38cb1f0993c730b420324b3a4c1c0a8b01212bc608ce90593ee38` |
-| Moriceau Crypto strategies Long short indicator Thesis__kDCH8dsr | backtested | 32 | -0.05% | 0.05% | 0.421s | `4bef21bcdce6a7730ef64230bd5e6ea31a2dbe611bf1067a10183ff928105bd0` |
-| no dice__rcqZ5wUR | backtested | 35 | -0.05% | 0.05% | 0.184s | `112dbb02c08d1b293bb6a836c29025095ec2830c17ea200a7e1ed3bb4adaaf25` |
-| Buying Dip Strategy With Take Profit And Stop Loss [racer8]__AHxkEMXm | backtested | 36 | -0.06% | 0.06% | 0.162s | `c1d82f2ba61473faeac105c33fa3c2ba906f68b17df323904620ab1834f4cf82` |
-| TACA RSI__24ocuOhG | backtested | 38 | -0.06% | 0.06% | 0.097s | `360dcb6bf1d5fc81ba7b68c1e5bdb9cab4ace523ce7695d87971f5392d32c521` |
-| Gab EMA + rsi + bb__aLrC3VO3 | backtested | 44 | -0.07% | 0.07% | 0.686s | `cda82311e64e1b4baf48518b210381a7e4b4f9d94e0436a8e8fd1a5fdd53b8cd` |
-| Simple RSI strategy__CqjfRFhX | backtested | 126 | 0.00% | 0.07% | 0.379s | `729b2d45a758db89670e5baa9e47f4973003f58ad7496095c9e69d2d2c3c1834` |
-| VeryCrudePriceAction V1__PzZN8vlA | backtested | 49 | -0.08% | 0.08% | 0.164s | `9402feb2de224f80840c212a5cfa303ed837de2737b71ca3a49dd9611f3bc996` |
-| Jim's MACD__AO8H2UZ3 | backtested | 50 | -0.08% | 0.08% | 0.394s | `a822f3d5bf0f2cdf52dbe82f06bded4b41227d6123f38ba9d60a698ca5a63059` |
-| CNPS 9 SMA7 50 Cross__fp0zbifH | backtested | 3 | 0.00% | 0.08% | 0.315s | `61b4025b21be54c7d47d2549eafc19b8357ef8b52e83c7534fa5e4246753e0ba` |
-| EMA RSI ATR Strategy (AXSUSDT D)__vpopCZIt | backtested | 40 | 0.00% | 0.08% | 0.323s | `0e45e38e18257676ab4f8af2aafebff10211b164de500153749c2a34843a3bf1` |
-| CNPS01 MACD__nk1xM7QA | backtested | 2 | 0.00% | 0.08% | 0.587s | `6a7f6fa10ea792c23bc7c25f957146eb846c853e9a7c22a451007e55fdfb8b58` |
-| CNPS08 MACD Cross Signal__qyF0FfAN | backtested | 2 | 0.00% | 0.08% | 0.460s | `4913d884c13edf8144adf286434b2d5c22a867c0e20d96fe2ff5eab6eaff0093` |
-| Linear Mean Reversion Strategy__HiTIaLW9 | backtested | 51 | -0.08% | 0.08% | 0.113s | `21d4f5114ed8278305af39026d51abc60f176a0c0ca1cd096111d1397d64d80e` |
-| ChBrkOutStrategySMA__Q68bqBap | backtested | 12 | -0.00% | 0.09% | 0.188s | `23ca8d64406d19ca12649c8be8cadf83b4f1d7ddb52810ef9c72d8850053a034` |
-| RSI Mean Reversion Strategy__RAIkCOKJ | backtested | 54 | -0.09% | 0.09% | 0.176s | `30928989db9761baff2673537fade25efc6dc8e0c347c8f0a8c7881498d9bc14` |
-| GStrategy 1000Pepe 15m__ZNWvrzFb | backtested | 60 | -0.10% | 0.10% | 0.422s | `d1481fab33e761792fcd11698f97bc18c959eb81236c1f8cb35671d299bd2a01` |
-| EMA Trend Buy sell strategy__J8DLify3 | backtested | 16 | 0.00% | 0.10% | 0.074s | `7191750fc6d2ae7aaaafa8c3156da2457559a68a064a1e0f5a1348255485651e` |
-| open open[1]=BUY else SELL__5zYcH3Gx | backtested | 499 | -0.10% | 0.10% | 0.064s | `1ea26d9f75942afedb7ef8ce8531159c27b0d4e6daa036e68419d53f338a2d05` |
-| Quatro SMA Strategy [4h]__lZpeRqJA | backtested | 18 | 0.00% | 0.10% | 0.299s | `dec3d6baa5091188b0bd6a36c51f7e08f38fdb5a34433345818ca506add79677` |
-| TrinityBar__bt3QP3Ao | backtested | 72 | -0.10% | 0.10% | 0.229s | `14b4b31200a0120e796ad0892ffde30ce516fa5c59f1f3bbf015414899da6908` |
-| 4H CCI Strategy 1.4__27DWrT5B | backtested | 72 | -0.11% | 0.11% | 0.124s | `e9b9d34717ed3f65a7d4d5e7a93a7c4cb6127900911e50ee43aca2771ecde106` |
-| Big Candle Identifier with RSI Divergence and Advanced Stops__0gbykoCd | backtested | 85 | -0.13% | 0.14% | 0.242s | `068e8501d4ef916161b3517f5fbbcb5fc4a8ac10874d8c9edc29f30ffad42af3` |
-| Simple RSI stock Strategy [1D]__TKil05Rg | backtested | 108 | 0.00% | 0.15% | 0.646s | `9c37a2308cfbdbf7d423abd0e91963b306297d76b6dfe0aac15f9cb738748322` |
-| Payday Anomaly Strategy__3gsu7i9I | backtested | 1 | 0.00% | 0.15% | 0.083s | `d1fadac46b415a5cffede378d3a46f8d5ca95bb5c45726349e84bb2088c6b0a9` |
-| CNPS7 3SMA Cross__2LoYZG4M | backtested | 3 | 0.00% | 0.16% | 0.316s | `8d23cad1bbed0664b1edc49979b6a545d3589389e6ecdad86a8fb0d9e511235e` |
-| CNPS4 BB SMA__IODeL1O6 | backtested | 7 | 0.00% | 0.16% | 0.568s | `c5b623c000df7bb0461d65b469254b548b6121477120828cc9cfc1a8d12bf16d` |
-| Sniper Scalping Bot 15M (NQ ES Gold)__isp5rkkS | backtested | 8 | -0.16% | 0.16% | 0.244s | `467b4683413f7e051c31373f6a65610a071fe9555a499b438e71709df498f82e` |
-| Сalculation a position size based on risk__hoCPm5UY | backtested | 4 | -0.16% | 0.16% | 0.101s | `22377c4e8d008dff7952fbcb8dfefc5aa5b3d91db47f9a8a5f290be99102cda3` |
-| Sovereign Horizon Matrix (SHM) v8.0__wVNfdkHu | backtested | 13 | 0.00% | 0.16% | 2.265s | `c35626569491a976a894503266461dcce269bbba341c0704d673e3a310f619d7` |
-| Momentum Swing 1–3 Weeks__PaRtMGHn | backtested | 5 | 0.00% | 0.16% | 0.597s | `f412649c1b9c79d35a9faf4b6f157996f94f3b064d1bcca89e1fc51f88904218` |
-| CNPS6 BB ADX__MGF6uCxc | backtested | 20 | 0.00% | 0.16% | 0.427s | `41573a6edc573089f5fec67643da383f27e6a5eae7e1f3abb0417bdf153df7c4` |
-| SMH DualMomentum (ROC + Volume Trend)__1QJN9Uxq | backtested | 3 | 0.00% | 0.16% | 0.189s | `f91da32d3657d06ab97d68f4f264d38189ef6479ded9426be1a60c1f2556cdeb` |
-| PSOL 02 Keltner Breakout__q8uGKGN6 | backtested | 26 | 0.00% | 0.17% | 0.959s | `5f1d68eaca4ea63d5d8f824ce45a0a51b1857516df8ed3079468f6358ca416be` |
-| CNPS2 Bollinger Band__8LQsjqYR | backtested | 15 | 0.00% | 0.17% | 0.559s | `a7b181bf33beb9c4fa20adad211f9d472575dcb257376088bc5bdacac3cec75b` |
-| CNPS10 SMA PSAR__qlWWDZOI | backtested | 57 | 0.00% | 0.17% | 0.409s | `94bee2bd0e10e83294de862dad9f4588090357f9d35beecac9f69c6e2fd1904a` |
-| CNPS3 SMA20 200__WCsZYm59 | backtested | 83 | 0.00% | 0.17% | 0.490s | `9b1bf6180135c56dc681b90f658c6f270605332ffe5c28a58929cb5c5648b2b6` |
-| Market Breadth Trend Strategy__JBDWeA0T | backtested | 259 | -0.08% | 0.17% | 0.301s | `a775618375f8b3f2351f58eb5c581bdb2394c3a61a92169337b0f0f4d20c8193` |
-| Candlestick Patterns Strategy (revisited)__eVzMWyqP | backtested | 50 | 0.00% | 0.17% | 0.416s | `fab97542e7a4b43a864ef2bf4cdcf0612ef14cbd187a5f62d13564117a6eb645` |
-| Williams %R Strategy__4TKWH069 | backtested | 8 | -0.00% | 0.17% | 0.077s | `90c266c95de0cafebdd13a916b1a7e41b220a8ce354c962781c26afe9d461ac8` |
-| Uptrend Pullback (High Winrate ish) RSI + EMA + ATR Trail__XLx4CnI6 | backtested | 6 | 0.00% | 0.17% | 0.544s | `029e55e8313edd4186355e3d6b638bf973403c63341e6e834385de1ee8a38293` |
-| Optimized Doji Breakout Strategy (Short Only) V6__CzLuDuzf | backtested | 227 | 0.00% | 0.17% | 0.357s | `c07ef5890dd1bae569422adc57599a521aa470a135ec2d1c97ae5cf01cb80c5c` |
-| Super RSI Strategy__Lw0Jh94y | backtested | 58 | -0.00% | 0.17% | 0.285s | `bcc66869f1a5ba2f003c9b42cb68854f0abda83039a537fef234a0a4769c5044` |
+| scratch v0 RSI Strategy__l6v2XE4n | no_orders | 0 | 24762227043.60% | 1699507600.00% | 0.132s | `bc103d5ac3890e5776dd1471ac8d62a759db5c005f0de9df36e76a58f8b7e3a8` |
+| Pump Smart Shorting Strategy__rvIzBoho | backtested | 17 | 2477665495.26% | 2770936440.38% | 0.289s | `9547692dec4c356be1868b54a43fc8846d15a16d8e582feb1cf17e1447c0731b` |
+| RSI Strategy with alerts via TradingConnector to Forex__kQY2gaLx | no_orders | 0 | 77215620.00% | 11713100.00% | 0.076s | `676b66ee12169f94353b271fa00bf93e89ad6a58ba77469c4829182105b172e7` |
+| Strategy MACD vs BB__muzLmNwb | no_orders | 0 | 35966187.47% | 5856550.00% | 0.253s | `fc6242eec614105a2f5f3626f01e5d529d95e8c0192a7ed00bd52b2b03633f95` |
+| Moving Stop Loss mechanism + alerts to MT4 MT5__GRTIMXzJ | backtested | 35 | 20924800.00% | 865334117.10% | 0.293s | `8cfae9def98d28d5d1a8d338c767d8370b4584cc8e14822901b72e09c14e0639` |
+| [EURUSD60] BB Expansion Strategy__7yPV3OPU | backtested | 3 | 20296971.60% | 797981086.00% | 0.620s | `86e41083715bf2facd22d85974a10a48823049fef1f4a2dd19abca60571bc093` |
+| RSI Strategy EUR USD 1H 700%__9SutL1Jw | no_orders | 0 | 7717961.80% | 1171310.00% | 0.080s | `45afdafa2bc4bb330afa7f9203cfef0b263021c0804f110bbb4180a646810ce3` |
+| TFs Golden Cross Status Box__klcnDny7 | no_orders | 0 | 7528812.42% | 1171310.00% | 0.340s | `0be6e50fd3d95fec553db87d0d1105c1a0cfc883582844203d0a0fe5ea2e44b0` |
+| RSI small trade strategy__uccqZ4eB | no_orders | 0 | 7099049.41% | 1171310.00% | 0.149s | `b228c7565c9a7f49d7ec21b16d1c2d6c82a006dde20f5a28562fd006f1c22993` |
+| Simple and efficient PSAR swing strategy__Kf33o8g5 | no_orders | 0 | 774597.18% | 117131.00% | 0.188s | `1b32eedeab10360237353b66bc0ceaa1a055d0a8feefd4171af98508e3ee2a8b` |
+| Consecutive Up Down Strat + alerts via TradingConnector to Forex__HjySseyp | no_orders | 0 | 771796.18% | 117131.00% | 0.039s | `ec9475d40a5ec5cb9ba57a4cf5346b016fc303a3ac2e082760b3a7a894706b22` |
+| BollingerBands Strat + pending order alerts via TradingConnector__a5CmxEJq | no_orders | 0 | 755164.50% | 117131.00% | 0.134s | `d1fc3e3246dd0bb4d4dc1e79d54f30336729b2c6b18b6e79b59a0b2cca0acc96` |
+| Tristan's Multi Indicator Reversal Strategy__1wc9v4rw | no_orders | 0 | 93133.18% | 12669.35% | 1.258s | `20d34fc5c537884b4517c82c78761d5bfe15a0e344aa3c3b63ae34e0d4a8b02e` |
+| v2.0—Tristan's Multi Indicator Reversal Strategy__MmfqVjSS | no_orders | 0 | 93133.18% | 12669.35% | 1.663s | `c18d80d7258168f2e157679cad912be78faa09c5ed5df538e1c75fe3ae1214e3` |
+| ma 20 high low__zio8Ldrd | no_orders | 0 | 74424.94% | 11713.10% | 0.116s | `41daf87fb9e394c53c2b4439b1f6b16492bd62de3350a4bc28e491b0cebc6353` |
+| EMA50 3 min__Q5bv2Cxi | no_orders | 0 | 71189.01% | 11713.10% | 0.036s | `c99d3fad1219a3cae13f947b33ab120fa2be24d34ed6c2c2bb857c187f8d435d` |
+| CBMA Bollinger Bands Strategy directed [ChuckBanger]__7luXCH0b | no_orders | 0 | 53708.90% | 2633.32% | 0.404s | `164b04eb86e75d8089fff11f3ff9ee742ef8f56ac5eb5bdb5a7beee13e53a1b8` |
+| RSI Divergence Strategy__ASVRhqFM | backtested | 2 | 39289.01% | 47164.19% | 4.617s | `9a0407f06652c50aa417d31c5b2a47af2aec0b620c135896ebf7cbb88e6fa031` |
+| Tomukas Scale In V2__14l4u5gJ | backtested | 4 | 35735.39% | 31005.17% | 0.497s | `3e275806844a6bb073eadd3dc59b0b74334597967c07fd44103082b31de89537` |
+| KST Alert__scWnACde | no_orders | 0 | 19407.17% | 2928.27% | 0.414s | `5dde67d56ce05b4687f07f1c0e270bba6acb2c1534c383f8ce9abf3db11e69b3` |
+| SPAS Single Price Action Strategy__5xjpuCRk | no_orders | 0 | 18953.07% | 2928.28% | 0.076s | `25efb93dc6fae15109291a692c89aa270136c6f7722791b920084a398dd2196a` |
+| Monthly Performance Table by Dr. Maurya__IucWjmpl | no_orders | 0 | 10370.35% | 1756.96% | 0.540s | `674bd6abc425f67bbbb28f3058eaa4780bc38cc482abf44b8c36ab2322628c29` |
+| LANZ Strategy 2.0 [Backtest]__YFZE9yFC | no_orders | 0 | 8046.17% | 1221.12% | 0.320s | `443c5e246fc3012183d0fc48ba614bf842eec5848d878a990adbd59a49a3243b` |
+| DaveStrat__zMD0MU0U | no_orders | 0 | 7481.68% | 1171.31% | 0.257s | `9c3fa7d3d387a2937e47745860e6a30a1f020e329050ba98cc7281bd54d9c258` |
+| Lin Reg Cross__FXeBsq2O | no_orders | 0 | 7481.68% | 1171.31% | 0.251s | `ca3b7547916fe47888d643670edda00cbdf1ea89efad3f9d0955727c1b7e2cf2` |
+| Gui's Turtle or The everythings Script__DW3wCRKw | no_orders | 0 | 7113.85% | 1171.31% | 1.220s | `75c8adb8061da0467c27eb9258fe714b131aa493ed5ee1109760c6acc1108167` |
+| T7 JNSAR__DJPdcSEU | no_orders | 0 | 5815.34% | 961.47% | 0.376s | `3372719076fcc412ba6738f90b17881f7be15bfc9a5c909abe4f735d828d1948` |
+| 5 Major Signal Strategy 7 Candlestick Patterns__PaLW1Zno | no_orders | 0 | 5324.50% | 819.92% | 0.780s | `af299ae1415bea144431fe942ec6f0fb03fda6e05803801d900e15da302a7c05` |
+| Random ATR Strategy Bybit__xB5JtK12 | backtested | 15 | 4270.38% | 4270.23% | 0.286s | `88a87c6c5654db05da291d1dbcf29ed1ded360cd3646e41c5bda125943013e71` |
+| Refined MA + Engulfing (M5 + Confirmed Structure Break)__ZjaPtLo8 | no_orders | 0 | 3721.25% | 585.65% | 0.365s | `868b1f6da88bf8597886810a0d696cce72f80bcc60fa0940f1e49ccf94b64488` |
+| Noro's Bands Strategy v1.5__STH56j0F | no_orders | 0 | 2917.95% | 453.68% | 0.455s | `ccaf59d455cafc0faf9fd93ba7f88c9d88233f773c85288db33f7ffc2072d5b8` |
+| GOLD EMA Crossover Strategy__FM0NqXZL | backtested | 21 | 2570.32% | 2595.23% | 0.135s | `24b972be765f684c2ada72a166fdf8c52da1f07b0ce40e715a8a1c605e0d29a8` |
+| Complex Single Trade Strategy__02yfhjiz | no_orders | 0 | 1527.01% | 234.26% | 0.404s | `24e860ecde22804a2d32803e33595206cca806dc351df6c200dff7b8f2ab1090` |
+| Wave Trend w VWMA overlay__Tts2YhVP | no_orders | 0 | 1503.53% | 234.26% | 0.783s | `5a12636b3a0ca27d41b5bb6806706f6c840beefe4d3ca813215ba05bcead8697` |
+| 5M RSI Strategy__z61K5bxD | backtested | 53 | 1425.73% | 1838.37% | 0.173s | `964eb59f23a12975723dcd0354d7f982d77453361a8baeaa7da59a22201407bb` |
+| MA cross strategy__yL42H3Gp | backtested | 7 | 1349.63% | 84468.38% | 0.191s | `d2e543ae39af00f747d23ab361e5134bc41d5ae1f99bce55423a4c11ccdef6be` |
+| My Strategy__HjlpiM3j | backtested | 7 | 1349.63% | 84468.38% | 0.175s | `572bb80cfa1c3e8fab4f03e803180fcc95a6ad861a7158d8e539d83bf0680257` |
+| [DS]Entry Exit TRADE.V01 Strategy__RO4rB2HF | backtested | 16 | 868.48% | 848.84% | 1.279s | `b43e19ea74b4312500000b3ddef58f0d8de512397ab58764ba1fa9e315b7b82a` |
+| QQE Channel Strategy__c7V3XVUC | backtested | 8 | 854.02% | 800.44% | 0.759s | `ff42afa49fa999a875f34e8dc17b95b9a4d02e833b8decfa25314ea1ddbd59af` |
+| GoldFinger .007__SItNup0r | backtested | 11 | 799.74% | 873.05% | 0.110s | `3e9e8bdfda94d1098bea249c0321e41b9c69c646adeede847b17101b1b396b58` |
+| ChopFlow ATR Scalp Strategy__TgcbEl6W | backtested | 27 | 753.45% | 926.39% | 0.354s | `7181dad03eebfc0c17c68f3c8e535d56bf0da8ad9e65a3b5bdd4cf09fc415850` |
+| DCA Strategy with Hedging__qgghEAli | backtested | 60 | 752.50% | 884.70% | 0.304s | `cb73a7d3ff930d0112c729af32149794d0209f7f440136554088efd74a403093` |
+| JadeCap ICT Silver Bullet Strategy [PickMyTrade]__XEd7YlQe | no_orders | 0 | 752.33% | 117.13% | 0.406s | `a8a182768e2f515878d5b1f267990a71dd29c501765ff41d6540e7d54fb53ef0` |
+| QQE Trend Strategy [Long Short]__KM4wOmrL | no_orders | 0 | 747.53% | 117.13% | 0.655s | `c189ce3da580f65c7da7451d0ea69f843b2b0caf2e11d6a54462eaef32156fd1` |
+| Tendies Heist Auto Compounding Example__xgKqIy1J | no_orders | 0 | 733.49% | 117.13% | 0.190s | `883e37bee3a97c7143dde2c97369cbf0ad2f81a41cf50767ace577a2ca91c9db` |
+| SuperTrend Strategy [Long Short]__ZV6yfF87 | no_orders | 0 | 711.51% | 117.13% | 0.338s | `b38ef9ead1fa22a416ed3ad5622f8c36515c9054b4adab702f02d64a614f4a6b` |
+| Understanding order sizes__WivHc6GW | no_orders | 0 | 710.71% | 117.13% | 0.063s | `540421eb9f92ff6f8ca3b6b9e5aa9f6f41b3b3af8737672ca9b47acc6acff89e` |
+| MACD Crossover Strategy [Long Short]__EmvVsgot | no_orders | 0 | 709.35% | 117.13% | 0.418s | `06f75597894b6b21b374dcf0df2c2e5058660275d9631309c167c0d80b76e2d2` |
+| Refined CandleCounter Strategy__Zqzf9Dcx | no_orders | 0 | 709.35% | 117.13% | 0.253s | `ff90bbbebdf9a6f686820324d6141a4d454112fea8bee7ff9fe6382f8efdd591` |
+| SuperTrend__t3vishEw | no_orders | 0 | 709.35% | 117.13% | 0.163s | `eab5510f190e5d69fdb272e9ba15e73fe4dbc9dcc19ee3b0718292b7bbc6b376` |
+| Understanding contract sizes in a strategy__YAhttDtq | no_orders | 0 | 709.35% | 117.13% | 0.057s | `94171e93fba6ea525b38561584292b99dd05b7f5763b845e5ec10f6de32b508e` |
+| SPX Scalping Strategy__wsykXMkv | no_orders | 0 | 708.45% | 117.13% | 0.537s | `145d12e1d053073383847d01fd1e6d9eeec3e364220103f7ab0b163e619447ec` |
+| Trend Following or Mean Reverting__JTEmA2hf | no_orders | 0 | 708.45% | 117.13% | 0.041s | `5b1a0b12d1668df0c81da1751b633028dde71f02f01a21d8ca1569967e1ccebd` |
+| EMA Cross Strategy v5 (30 lots) (15 min candle only) safe flip__aglHJmZc | backtested | 23 | 448.94% | 51847.36% | 0.100s | `b3c3827776ba34a07668a09bda30f7b0aabfddfb427d694f2e024acad190577a` |
+| R19 STRATEGY__2LOPRpQH | backtested | 2 | 108.98% | 96.52% | 0.741s | `46ce20892f1a1dd5be993ba9a38b384a57c20c68a297d3a8b92be80fd28e65ba` |
+| Institution Accumulation Distribution__mLGPDwr9 | backtested | 5 | 103.77% | 102.58% | 0.205s | `b4be5bbabbb204f8b7fb8cc745a6bfa933adf45809b768fda3529c43c8193e83` |
+| VWAP Stdev Bands Reversal Strategy__X1tap85S | backtested | 7 | 101.75% | 286.35% | 1.046s | `33f5eb0a9d4a35e82527130616883d7eb6b1785a9991d974a8f1ce7550e32358` |
+| Ichimoku Long and Short Strategy__7G3ds7ih | backtested | 2 | 101.54% | 7945.64% | 0.666s | `3c1dc835c676dea498ecc1a99471d301cfb45fa8e1b1094b135b1f287e7e73e5` |
+| BASELINE2)__2zFQot2h | backtested | 5 | 100.81% | 101.13% | 1.000s | `e2ffa8d0d6617bde66033e676403f7eb7e05d5f90782db4ba48e234a9af13d2f` |
+| Smart Trend Strategy julzALGO__Sg2qyDDe | backtested | 1 | 99.90% | 100.65% | 2.538s | `d1b7c67db0d5060f0e9b6bc4f6571edb4e78b038658404aa0e21093e22e6cb33` |
+| 8 30 SMA Pullback + ATR Exits (Crypto)__TlCUJRcP | backtested | 22 | 99.90% | 100.38% | 0.278s | `143dd687f2946ac589426293d33722dce61a8927c1ed39b5034ef72a8e0be6e4` |
+| LinReg Slope + Acceleration Filter__XhztV83u | backtested | 8 | 99.41% | 103.29% | 0.406s | `630e6d525355d04695c5220b9bbdaba925a2879069f7fc2c16ef47356874facf` |
+| ETH BB + 2 Candles__nUmHknsY | backtested | 9 | 98.82% | 104.00% | 0.159s | `a0f94f72c90776eb6f049d27ee15c1a0abf91a1f62fab06d4a2c3ad9b39b69a9` |
+| Bollinger Band Breakout Positional Strategy BN 15M__KulH3L3V | backtested | 2 | 98.30% | 101.34% | 0.400s | `b13bfff8be8c5d9c924d37758fa0ef6c532099a396cdda1a24338d3ee764d287` |
+| Jomy's Gyroscopic Bands__SNEfv33f | backtested | 280 | 96.33% | 200.98% | 0.170s | `bb690e433854120616270fa1b6efa6ad41589f9ecf895f80d407bc608ce1b84a` |
+| SB Volume oscillator Prev high low__UALVNImf | no_orders | 0 | 96.30% | 14.38% | 0.122s | `a377884622cbc823b9af661c401210e021051cc859d48bfcd33a9117d29b1bf1` |
+| Ehlers Stochastic Cyber Cycle Strategy__o8xAiLoN | no_orders | 0 | 96.14% | 14.40% | 0.281s | `527d3e4c4a1501246874258b2f4de568e3c36cef6400aa7c37724974cca81969` |
+| Noro's Trend MAs Strategy 1.5__Ku9NSS1l | no_orders | 0 | 95.99% | 14.42% | 0.231s | `b4da5be6435706ca480cd6dc81c2b77f62815738d6917e2d0ecc854a98318bee` |
+| Noro's Trend SMA Strategy v1.3__DhXzIAb6 | no_orders | 0 | 95.99% | 14.42% | 0.153s | `f37e323884ef0cd30b577d8bc2cf5b3a6396cd6aa1b5155a0f94f54eb1bbfeb2` |
+| Noro's Trend SMA Strategy v1.4__DejDfmGq | no_orders | 0 | 95.99% | 14.42% | 0.203s | `9c96277e8f7b15c2d291fdc6511944c47404b9a2f66829e18f2c6c5e9f652d8e` |
+| Hull MA and Candle cross__PDt7xwn2 | no_orders | 0 | 95.89% | 14.43% | 0.206s | `c22c9a260ff884de2c34ef6c5cfc5fbf8b4376d0348dd9feff78daaf371e42ae` |
+| Noro's Trend SMA Strategy v1.1__MuEmSvnL | no_orders | 0 | 95.89% | 14.43% | 0.065s | `c8981b1b56e17bb9a720e6727d94a9e0b320f73663d6700fc98c72a62f3c1d24` |
+| Stoch Trader__QjTDxJMi | no_orders | 0 | 95.66% | 14.47% | 0.113s | `71371c1f0cc16c21cf7a4db0d9c8b6bad30f29aab8788b589ebb1ae50b0ed1b2` |
+| TSI CCI Hull__MuAKk43D | no_orders | 0 | 95.50% | 14.49% | 0.713s | `922c88db6698671880fe58c63b92615f0245811783a6c41516a1f28a8d95cff0` |
+| Kozlod Simple BB Strategy XBTUSD 1 minute__D3PkU5ho | no_orders | 0 | 95.34% | 8.55% | 0.105s | `13606e028b5ba5dc1d9bd6bdcf14634cb1764f9bc28ddff0ce645020366ea5bc` |
+| WMX Keltner Channels strategy__OQ7jRpHl | backtested | 4 | 94.84% | 103.34% | 0.217s | `3f4b54978b74843c6c8fdda5efbccceb9733fb9c3a27cb4847875c7c7115c388` |
+| Hull Crossover Strategy no TP or SL__5BJ5tnca | no_orders | 0 | 94.40% | 14.64% | 0.071s | `bd778537104e329143b42a607de0244e7adbf1f946d028fff32b114eb57ebf60` |
+| STRATEGY R18 F BTC__hblG106q | backtested | 3 | 94.22% | 97.29% | 0.245s | `f852c95cb9293e93437a98a34ec067d479e781931fd3054e1df41e0336082188` |
+| Noro's Color Strategy v1.0__HLiMJNkP | no_orders | 0 | 94.14% | 14.68% | 0.040s | `77e5d54787066eb0bf3d92a2f7c9ccc9d125954b2c8de6274ab889e02179b723` |
+| Technical Summay & Crowd Consensus Lite Triggon__U3mcySX9 | no_orders | 0 | 94.11% | 14.68% | 2.532s | `3dce3a929231716adad1e639752d12357af4159f014517c5bfd875065ed057c7` |
+| Noro's Bands Scalper Strategy v1.0__B8MQIXUJ | no_orders | 0 | 94.06% | 14.69% | 0.218s | `9ef37a61b0fc1ff6eecf86b5fed822d51c496f5c0889a52ff16da14318551763` |
+| Noro's Bands Scalper Strategy v1.1__jYUnE48W | no_orders | 0 | 94.06% | 14.69% | 0.172s | `e13ea24cb8083d6d2aa57dd85b8823bc64aa8cea78ca40870bf3c48ef1bf2755` |
+| Noro's MAs Cross Tests v1.0__OWofkCNG | no_orders | 0 | 94.06% | 14.69% | 0.377s | `d197d57ad9d1a9fd45bdbebb59851df53ea3f26375b59b97c0e6f76f1e6255bf` |
+| Noro's Trend MAs Strategy v1.6__Ni3lNAwb | no_orders | 0 | 94.06% | 14.69% | 0.422s | `f906899faf31132e31170554eac1793c476f8804a965249532ad43f4532420e4` |
+| SMA&RSI Strategy__b1slRLyF | no_orders | 0 | 94.06% | 14.69% | 0.102s | `b7ae049d4dac111966d4d0e284341f0863f6f8fb26b6ee6e7f3b59b05ec9546b` |
+| Turtle soup plus one__pQSrIqR2 | no_orders | 0 | 94.06% | 14.68% | 0.276s | `3b28a4e9758668a343cae85bfbb9100138a69e9687c8fa8cadbacbbd18a9aa55` |
+| Noro's Color Strategy v1.1__hSbL7WiX | no_orders | 0 | 94.00% | 14.70% | 0.059s | `1ca77f63760e84d30e906f23b92c10cf557f3c25ec06b17a42fe7db5838d0bbe` |
+| CK INDEX Strategy Open source code, Free, No Cost__SPVEenBF | no_orders | 0 | 93.73% | 14.73% | 0.173s | `20d73518b002e64f68d5384833f046e69b0a3da2b58ec8790dfdfc158c98ae91` |
+| Bollinger Bands Breakout Strategy__ppW27gnq | no_orders | 0 | 93.67% | 14.74% | 0.268s | `8b3dcb2a6f9e170a5bee80f56ae42fde7983f288700f5f1253f32625830e0a62` |
+| CCI with EMA Strategy__qDZzoZAI | no_orders | 0 | 93.67% | 14.74% | 0.205s | `ebaa319b3b14012319223522405471b614988c4bdc835f60f20e1c0072726592` |
+| Kozlod RSI Strategy 1 minute ETHUSD__MNyc30Ki | no_orders | 0 | 93.67% | 14.74% | 0.082s | `3a43e3e3a15165c797a77f248011639a54b72906686492b910df0c8777eff182` |
+| Noro's Channel Close Strategy__12DtNLFY | no_orders | 0 | 93.67% | 14.74% | 0.049s | `0f612da8ca11333a3bf42d054e2d02a1413f396d5fdbb4c640935a907cc01a8c` |
+| QuantNomad RSI Strategy NKE 5m__32ZHCA6S | no_orders | 0 | 93.67% | 14.74% | 0.083s | `e3035d0078235e3f50fe9a63acde4f8e13831259f53bc58f75292d214ea60e49` |
+| Coding lesson 3 Color SMA__L9fYapdW | no_orders | 0 | 93.64% | 14.75% | 0.064s | `30786b1b0003f23d3e9ccb205c7387f5a8ae19dd17b31661e66f0213e4d570a6` |
+| Noro's Bands Scalper Strategy v1.5__kzBdTlyZ | no_orders | 0 | 93.64% | 14.75% | 0.242s | `9ddbf46787e5bee949923a82c1c997405f9cb5c429c10d28312b0f18157cc518` |
+| Noro's Bands Strategy v1.0__ZaHXEfsM | no_orders | 0 | 93.64% | 14.75% | 0.130s | `9a0b86288b7490e83d8b6afb3c4b48975ac454b66f02338fd30cad04ca9e24e7` |
+| Noro's Bands Strategy v1.1__uLFXYtqX | no_orders | 0 | 93.64% | 14.75% | 0.127s | `58268f787231224f0da1d66ee8add21ee434d47a7d53941b92fb473430de1304` |
+| Noro's Bands Strategy v1.2__b2VRNxUl | no_orders | 0 | 93.64% | 14.75% | 0.340s | `ef7ec14a52851d48dc15ae4f0c6db5e45962d0546ba5e337e0f952472c668e71` |
+| Noro's Bands Strategy v1.3__2nWGBclu | no_orders | 0 | 93.64% | 14.75% | 0.353s | `85544f06a34b2843e4c1ecd87f02eebcb8cb3cdb8c8bd59f163e9a89d6ebd9e9` |
+| Noro's Bands Strategy v1.4__H01MpZ9e | no_orders | 0 | 93.64% | 14.75% | 0.286s | `2f732766c8c4c3d0c1489be274172386b4b8ec1c13e9a079ec1a120c8549e4b5` |
