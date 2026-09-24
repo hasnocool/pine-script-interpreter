@@ -487,6 +487,7 @@ class _PineRuntime:
         self._function_owner: dict[int, Program] = {}
         self._library_stack: tuple[Path, ...] = ()
         self._active_library: Program | None = None
+        self._series_scope: str = ""
         self.functions: dict[str, FunctionDeclaration] = {}
         self.methods: dict[str, FunctionDeclaration] = {}
         self.types: dict[str, TypeDeclaration] = {}
@@ -5015,8 +5016,10 @@ class _PineRuntime:
             local[parameter.name] = value
         old_values = self.values
         old_active_library = self._active_library
+        old_series_scope = self._series_scope
         self.values = local
         self._active_library = self._function_owner.get(id(function))
+        self._series_scope = f"fn{id(function)}"
         try:
             result: Any = None
             for statement in function.body:
@@ -5029,6 +5032,7 @@ class _PineRuntime:
         finally:
             self.values = old_values
             self._active_library = old_active_library
+            self._series_scope = old_series_scope
 
     def _dynamic_callee(
         self,
@@ -5068,7 +5072,12 @@ class _PineRuntime:
         if key in self._series_key_cache:
             return self._series_key_cache[key]
         if isinstance(expression, Identifier):
-            result: str | None = expression.name
+            # A parameter or local that shares a name with an outer variable
+            # must not share its recorded history, or a `f(source)` call would
+            # read back the global `source` series.
+            result: str | None = (
+                f"{self._series_scope}.{expression.name}" if self._series_scope else expression.name
+            )
         elif isinstance(expression, MemberExpression):
             parent = self._series_key(expression.object)
             result = f"{parent}.{expression.property}" if parent else None

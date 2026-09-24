@@ -1030,6 +1030,33 @@ def test_drawing_handles_keep_nonessential_methods_explicitly_approximated() -> 
     assert "drawing.handles" in report.approximations
 
 
+def test_a_parameter_does_not_share_series_history_with_a_global() -> None:
+    # Series history is keyed by identifier name.  Without a per-function scope
+    # a parameter called `source` read back the global `source` series, so a
+    # `f(source)` call saw the global's string value instead of its argument.
+    source = dedent(
+        """
+        //@version=6
+        strategy("shadowed series", overlay=true)
+        source = "Close"
+        average(source, length) =>
+            ta.sma(source, length)
+        result = average(close + 1, 2)
+        if not na(result) and result > 0
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102, 103]),
+    )
+
+    assert report.trades
+    assert all(isinstance(trade.pnl, float) for trade in report.trades)
+
+
 def test_drawing_copies_are_independent_handles() -> None:
     source = dedent(
         """
