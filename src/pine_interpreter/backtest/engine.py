@@ -1482,6 +1482,12 @@ class _PineRuntime:
                     return self._ta_call(expression.property, (), (), values, expression)
                 if expression.property == "iii":
                     return self._ta_call("iii", (), (), values, expression)
+                if expression.property == "pvi":
+                    return self._ta_call("pvi", (), (), values, expression)
+                if expression.property == "wad":
+                    return self._ta_call("wad", (), (), values, expression)
+                if expression.property == "wvad":
+                    return self._ta_call("wvad", (), (), values, expression)
                 if expression.property == "pvt":
                     return self._current_pvt()
                 if expression.property == "accdist":
@@ -4182,6 +4188,72 @@ class _PineRuntime:
                     / (self._number(bar_high) - self._number(bar_low))
                 ) * self._number(volume)
             return total
+        if name == "pvi" and not arguments:
+            # Pressure Volume Index: each bar contributes
+            # volume * (close - close[1]) / true_range, accumulated.
+            closes = self._ohlcv_series("close")
+            volumes = self._ohlcv_series("volume")
+            true_ranges = self._true_range_series()
+            total = 0.0
+            for index in range(1, len(closes)):
+                close = closes[index]
+                previous = closes[index - 1]
+                volume = volumes[index] if index < len(volumes) else None
+                if close is None or previous is None or volume is None:
+                    continue
+                true_range = self._number(true_ranges[index]) if index < len(true_ranges) else 0.0
+                if not true_range:
+                    continue
+                total += (
+                    self._number(volume)
+                    * (self._number(close) - self._number(previous))
+                    / true_range
+                )
+            return total
+        if name == "wad":
+            # Williams Accumulation/Distribution: accumulate the close's move
+            # against the prior bar's range, or a rolling sum when a length
+            # is supplied.
+            highs = self._ohlcv_series("high")
+            lows = self._ohlcv_series("low")
+            closes = self._ohlcv_series("close")
+            contributions: list[float] = [0.0]
+            for index in range(1, len(closes)):
+                close = closes[index]
+                previous = closes[index - 1]
+                bar_low = lows[index] if index < len(lows) else None
+                bar_high = highs[index] if index < len(highs) else None
+                if close is None or previous is None or bar_low is None or bar_high is None:
+                    contributions.append(0.0)
+                    continue
+                current = self._number(close)
+                prior = self._number(previous)
+                if current > prior:
+                    contributions.append(current - min(self._number(bar_low), prior))
+                elif current < prior:
+                    contributions.append(current - max(self._number(bar_high), prior))
+                else:
+                    contributions.append(0.0)
+            if not arguments:
+                return sum(contributions)
+            length = max(1, int(self._number(arguments[0])))
+            return sum(contributions[-length:])
+        if name == "wvad":
+            # Williams Variable Accumulation/Distribution: the sum of the
+            # close-to-close changes, accumulated or over a rolling length.
+            closes = self._ohlcv_series("close")
+            changes = [0.0]
+            for index in range(1, len(closes)):
+                close = closes[index]
+                previous = closes[index - 1]
+                if close is None or previous is None:
+                    changes.append(0.0)
+                    continue
+                changes.append(self._number(close) - self._number(previous))
+            if not arguments:
+                return sum(changes)
+            length = max(1, int(self._number(arguments[0])))
+            return sum(changes[-length:])
         if not arguments:
             return None
         source = arguments[0]

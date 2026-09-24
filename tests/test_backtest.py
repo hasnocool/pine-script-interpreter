@@ -1357,6 +1357,26 @@ def test_user_defined_type_copy_duplicates_fields() -> None:
     assert len(report) == 1
 
 
+def test_ta_volume_accumulation_indicators_return_numbers() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("accumulation indicators", overlay=true)
+        pressure = ta.pvi
+        accumulation = ta.wad
+        variable = ta.wvad
+        if bar_index == 2 and not na(pressure) and not na(accumulation) and not na(variable)
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 4
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 101, 102, 103, 104])
+    )
+    assert len(report) == 1
+
+
 def test_position_avg_price_is_na_when_flat() -> None:
     source = dedent(
         """
