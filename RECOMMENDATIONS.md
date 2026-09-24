@@ -43,11 +43,11 @@ Implemented in the current pass:
 The latest local baseline (runtime `0.3.1`, cached Binance BTC/USDT `1h`
 snapshot, 500 candles, 6,081 strategies) measured:
 
-- **2,021** strategies with completed trades, up from 862 in runtime 0.3.0
-- **3,781** no-order results
-- **142** validation errors, down from 2,569 in runtime 0.3.0
-- **137** execution-limit stops and **0** wall-clock timeout stops
-- **137** partial diagnostic snapshots
+- **2,374** strategies with completed trades, up from 862 in runtime 0.3.0
+- **3,462** no-order results
+- **91** validation errors, down from 2,569 in runtime 0.3.0
+- **154** execution-limit stops and **0** wall-clock timeout stops
+- **154** partial diagnostic snapshots
 - **0** runtime errors and **0** parse errors
 
 This is a coverage report, not a profitability claim. The compatibility delta
@@ -62,7 +62,37 @@ from swallowing subsequent top-level declarations, so libraries such as
 ZenLibrary and the local `ta` libraries now expose all of their exported
 functions; rows that previously executed truncated code were re-run, and the
 newly visible code paths that reference still-unsupported features now report
-explicit validation errors instead of silent no-order diagnostics. The target archive
+explicit validation errors instead of silent no-order diagnostics.
+
+Series and `var` state reached through a function were the largest remaining
+source of silent no-order results, and correcting them accounts for most of
+the 355 strategies that moved from `no_orders` to `backtested` in this pass.
+A function that read a global looked up a scoped history key that was never
+written, so every previous-value comparison came back `na`; function-bound
+names had no recorded history at all, so a `ta.*` window over a parameter
+held a single value and a local's own `[1]` was permanently `na`; the scope
+was per function object rather than per call site, so two calls to one
+function read each other's state; and `var` storage was keyed by bare name,
+so two call sites shared an accumulator and a global assignment of the same
+name wrote into the function's storage. Each correction has a regression test
+that is verified to fail when the fix is reverted. Separately, `matrix.transpose`
+and `matrix.sum` were registered builtins that returned `None`, so scripts
+using them completed while silently losing every element.
+
+The remaining 91 validation errors are not interpreter defects: 37 name
+publisher libraries that are not present in the local archive, 15 reference
+builtins that no script or local library declares (`median`, `kagi`, `stepline`,
+`isdwm`, `updatetime`, `NEUTRAL`, `ask`), 11 are user-defined-type destructuring
+that Pine itself rejects, and the rest are the strategies' own timeframe and
+data-availability guards. These stay explicit rather than being approximated
+away. Four strategies that previously reported completed trades now stop at
+the execution-step limit: each grows an unbounded collection or counter and
+rescans it every bar, which correct per-call-site state exposes. The report
+also labels a row `no_orders` when a strategy opens positions it never closes
+under `close_at_end=false`, even though final equity moved; that is a
+reporting-classification question rather than a runtime defect.
+
+The target archive
 is `Pine/TradingView`: 20,479 Pine files parse successfully, including the 6,081
 strategy files used for the baseline. The result includes feature inventories,
 source hashes, the candle content hash, and explicit approximation markers.
