@@ -244,9 +244,7 @@ class _Broker:
             if self.position.entries_count >= self.pyramiding_limit:
                 return False
             cash_delta = (
-                quantity * new_fill + new_fee
-                if side == "long"
-                else -quantity * new_fill + new_fee
+                quantity * new_fill + new_fee if side == "long" else -quantity * new_fill + new_fee
             )
             if self.cash - cash_delta < -1e-9:
                 return False
@@ -278,9 +276,7 @@ class _Broker:
             else:
                 projected_cash -= self.position.quantity * close_fill + exit_fee
         projected_cash += (
-            -quantity * new_fill - new_fee
-            if side == "long"
-            else quantity * new_fill - new_fee
+            -quantity * new_fill - new_fee if side == "long" else quantity * new_fill - new_fee
         )
         if projected_cash < -1e-9:
             return False
@@ -771,7 +767,9 @@ class _PineRuntime:
         final_equity = (
             equity_curve[-1].equity
             if partial and equity_curve
-            else self.broker.equity(mark_price) if candles else self.initial_cash
+            else self.broker.equity(mark_price)
+            if candles
+            else self.initial_cash
         )
         position = self.broker.position
         open_position = (
@@ -1247,9 +1245,7 @@ class _PineRuntime:
                 return 50.0
             if expression.name == "weekofyear":
                 return (
-                    self.current_candle.timestamp.timetuple().tm_yday
-                    if self.current_candle
-                    else 0
+                    self.current_candle.timestamp.timetuple().tm_yday if self.current_candle else 0
                 )
             if expression.name == "vwap":
                 return self._ta_call("vwap", (), (), values, expression)
@@ -1432,9 +1428,7 @@ class _PineRuntime:
                 ">": left_number > right_number,
                 ">=": left_number >= right_number,
             }[expression.operator]
-        if expression.operator == "+" and (
-            isinstance(left, str) or isinstance(right, str)
-        ):
+        if expression.operator == "+" and (isinstance(left, str) or isinstance(right, str)):
             if left is None or right is None:
                 return None
             if isinstance(left, str) and isinstance(right, str):
@@ -1467,6 +1461,8 @@ class _PineRuntime:
             if name == "ta":
                 if expression.property in {"tr", "vwap", "obv"}:
                     return self._ta_call(expression.property, (), (), values, expression)
+                if expression.property == "iii":
+                    return self._ta_call("iii", (), (), values, expression)
                 if expression.property == "pvt":
                     return self._current_pvt()
                 if expression.property == "accdist":
@@ -1654,6 +1650,58 @@ class _PineRuntime:
             return self.broker.equity(price) - self.initial_cash
         if name == "netprofit_percent":
             return (self.broker.equity(price) - self.initial_cash) / self.initial_cash * 100
+        trades = self.broker.trades
+        if name == "avg_trade_percent":
+            self.approximations.add("strategy.avg_trade_percent")
+            if not trades:
+                return 0.0
+            return sum(trade.pnl for trade in trades) / len(trades) / self.initial_cash * 100
+        if name in {"avg_trade_count", "trade_num"}:
+            return len(trades)
+        if name == "avgwin_trades":
+            wins = [trade for trade in trades if trade.pnl > 0]
+            return sum(trade.pnl for trade in wins) / len(wins) if wins else 0.0
+        if name == "avgloss_trades":
+            losses = [trade for trade in trades if trade.pnl < 0]
+            return sum(trade.pnl for trade in losses) / len(losses) if losses else 0.0
+        if name == "avgwin_percent":
+            wins = [trade for trade in trades if trade.pnl > 0]
+            return (
+                sum(trade.pnl for trade in wins) / len(wins) / self.initial_cash * 100
+                if wins
+                else 0.0
+            )
+        if name == "avgloss_percent":
+            losses = [trade for trade in trades if trade.pnl < 0]
+            return (
+                sum(trade.pnl for trade in losses) / len(losses) / self.initial_cash * 100
+                if losses
+                else 0.0
+            )
+        if name == "largestwin":
+            return max((trade.pnl for trade in trades), default=0.0)
+        if name == "largestloss":
+            return min((trade.pnl for trade in trades), default=0.0)
+        if name in {
+            "max_cons_loss_days",
+            "max_cons_win_days",
+            "max_cons_loss_trades",
+            "max_cons_win_trades",
+            "max_cons_loss",
+            "max_cons_profit",
+            "max_cons_loss_percent",
+            "max_cons_profit_percent",
+        }:
+            self.approximations.add(f"strategy.{name}")
+            return 0.0
+        if name in {"wintrades_percent", "losstrades_percent"}:
+            if not trades:
+                return 0.0
+            win_count = sum(trade.pnl > 0 for trade in trades)
+            total_count = len(trades)
+            if name == "wintrades_percent":
+                return win_count / total_count * 100
+            return (total_count - win_count) / total_count * 100
         if name == "openprofit":
             return self.broker.unrealized(price)
         if name == "openprofit_percent":
@@ -1700,9 +1748,24 @@ class _PineRuntime:
             except BacktestValidationError:
                 receiver = None
             if isinstance(receiver, list) and expression.callee.property in {
-                "remove", "insert", "get", "set", "push", "pop", "shift", "unshift",
-                "clear", "sort", "copy", "sum", "min", "max", "avg", "size",
-                "first", "last",
+                "remove",
+                "insert",
+                "get",
+                "set",
+                "push",
+                "pop",
+                "shift",
+                "unshift",
+                "clear",
+                "sort",
+                "copy",
+                "sum",
+                "min",
+                "max",
+                "avg",
+                "size",
+                "first",
+                "last",
             }:
                 return self._array_call(
                     expression.callee.property, [receiver, *arguments], keywords
@@ -1790,8 +1853,7 @@ class _PineRuntime:
                     (
                         statement
                         for statement in library.statements
-                        if isinstance(statement, TypeDeclaration)
-                        and statement.name == type_name
+                        if isinstance(statement, TypeDeclaration) and statement.name == type_name
                     ),
                     None,
                 )
@@ -1833,14 +1895,10 @@ class _PineRuntime:
                 f"unknown field for {declaration.name}: {sorted(unknown)[0]}"
             )
         if len(arguments) > len(declaration.fields):
-            raise BacktestValidationError(
-                f"too many arguments for {declaration.name}.new"
-            )
+            raise BacktestValidationError(f"too many arguments for {declaration.name}.new")
         object_value: dict[str, Any] = {
             _OBJECT_TYPE_KEY: declaration.name,
-            _OBJECT_METHODS_KEY: {
-                method.name: method for method in declaration.methods
-            },
+            _OBJECT_METHODS_KEY: {method.name: method for method in declaration.methods},
         }
         for index, field in enumerate(declaration.fields):
             if field.name in keywords:
@@ -2060,23 +2118,20 @@ class _PineRuntime:
             return self._string_call("tostring", arguments)
         if name == "dayofweek":
             return self._time_call("weekday", arguments)
-        if (
-            name.endswith(
-                (
-                    ".tradeCount",
-                    ".longWinPercent",
-                    ".shortWinPercent",
-                    ".breakEvenCount",
-                    ".breakEvenPercent",
-                    ".maxDrawdownRealized",
-                    ".totalPipReturn",
-                    ".truncate",
-                    ".toWhole",
-                    ".fillCell",
-                )
+        if name.endswith(
+            (
+                ".tradeCount",
+                ".longWinPercent",
+                ".shortWinPercent",
+                ".breakEvenCount",
+                ".breakEvenPercent",
+                ".maxDrawdownRealized",
+                ".totalPipReturn",
+                ".truncate",
+                ".toWhole",
+                ".fillCell",
             )
-            and name.rsplit(".", 1)[0] in {"l_zen", "zen"}
-        ):
+        ) and name.rsplit(".", 1)[0] in {"l_zen", "zen"}:
             self.approximations.add("library.zen.trade_statistics_compat")
             member = name.rsplit(".", 1)[1]
             trades = self.broker.trades
@@ -2121,11 +2176,13 @@ class _PineRuntime:
                     drawdown = max(drawdown, 100 * (peak - equity) / peak)
                 return drawdown
             if member == "totalPipReturn":
-                return sum(
-                    (trade.exit_price - trade.entry_price)
-                    * (1 if trade.side == "long" else -1)
-                    for trade in trades
-                ) * 10
+                return (
+                    sum(
+                        (trade.exit_price - trade.entry_price) * (1 if trade.side == "long" else -1)
+                        for trade in trades
+                    )
+                    * 10
+                )
             if member == "truncate":
                 if not arguments or self._contains_missing(arguments[0]):
                     return None
@@ -2590,10 +2647,7 @@ class _PineRuntime:
         if arguments and isinstance(arguments[0], (list, tuple)) and name != "sum":
             if not arguments[0]:
                 return None
-            return [
-                self._math_call(name, [element, *arguments[1:]])
-                for element in arguments[0]
-            ]
+            return [self._math_call(name, [element, *arguments[1:]]) for element in arguments[0]]
         if not arguments or (arguments[0] is None and name not in {"sum"}):
             return None
         numbers = [self._number(value) for value in arguments if value is not None]
@@ -3072,9 +3126,7 @@ class _PineRuntime:
                 self.approximations.add("array.na_constructor_empty")
                 return []
             size = int(self._number(arguments[0])) if arguments else 0
-            value = arguments[1] if len(arguments) > 1 else (
-                "" if name == "new_string" else 0.0
-            )
+            value = arguments[1] if len(arguments) > 1 else ("" if name == "new_string" else 0.0)
             return [value] * max(0, size)
         if name == "from":
             return (
@@ -3129,14 +3181,14 @@ class _PineRuntime:
                 return arguments[0]
             index = int(self._number(arguments[1]))
             return (
-                arguments[0].pop(index)
-                if -len(arguments[0]) <= index < len(arguments[0])
-                else None
+                arguments[0].pop(index) if -len(arguments[0]) <= index < len(arguments[0]) else None
             )
         if name == "copy" and arguments and isinstance(arguments[0], list):
             return list(arguments[0])
-        if name == "concat" and len(arguments) >= 2 and all(
-            isinstance(value, list) for value in arguments[:2]
+        if (
+            name == "concat"
+            and len(arguments) >= 2
+            and all(isinstance(value, list) for value in arguments[:2])
         ):
             return [*arguments[0], *arguments[1]]
         if name == "insert" and len(arguments) >= 3 and isinstance(arguments[0], list):
@@ -3257,8 +3309,10 @@ class _PineRuntime:
         if name == "contains" and len(arguments) > 1:
             return str(arguments[1]) in value
         if name in {"startswith", "endswith"} and len(arguments) > 1:
-            return value.startswith(str(arguments[1])) if name == "startswith" else value.endswith(
-                str(arguments[1])
+            return (
+                value.startswith(str(arguments[1]))
+                if name == "startswith"
+                else value.endswith(str(arguments[1]))
             )
         if name in {"replace", "replace_all"} and len(arguments) > 2:
             return value.replace(str(arguments[1]), str(arguments[2]))
@@ -3382,9 +3436,11 @@ class _PineRuntime:
             volume = volumes[index]
             if previous in (None, 0) or close is None or volume is None:
                 continue
-            total += self._number(volume) * (
-                self._number(close) - self._number(previous)
-            ) / self._number(previous)
+            total += (
+                self._number(volume)
+                * (self._number(close) - self._number(previous))
+                / self._number(previous)
+            )
         return total
 
     def _current_accdist(self) -> float:
@@ -3510,60 +3566,70 @@ class _PineRuntime:
                 )
                 for element in arguments[0]
             ]
-        if arguments and any(value is None for value in arguments) and name in {
-            "sma",
-            "ema",
-            "rma",
-            "wma",
-            "hma",
-            "vwma",
-            "rsi",
-            "atr",
-            "cci",
-            "mfi",
-            "wpr",
-            "cmo",
-            "macd",
-            "stoch",
-            "bb",
-            "bbw",
-            "bbands",
-            "kc",
-            "donchian",
-            "supertrend",
-            "sar",
-            "adx",
-            "plusdi",
-            "minusdi",
-            "highest",
-            "lowest",
-            "highestbars",
-            "lowestbars",
-            "change",
-            "roc",
-            "momentum",
-            "linreg",
-            "stdev",
-            "variance",
-            "mad",
-            "cog",
-            "correlation",
-            "alma",
-            "swma",
-            "dmi",
-        }:
+        if (
+            arguments
+            and any(value is None for value in arguments)
+            and name
+            in {
+                "sma",
+                "ema",
+                "rma",
+                "wma",
+                "hma",
+                "vwma",
+                "rsi",
+                "atr",
+                "cci",
+                "mfi",
+                "wpr",
+                "cmo",
+                "macd",
+                "stoch",
+                "bb",
+                "bbw",
+                "bbands",
+                "kc",
+                "donchian",
+                "supertrend",
+                "sar",
+                "adx",
+                "plusdi",
+                "minusdi",
+                "highest",
+                "lowest",
+                "highestbars",
+                "lowestbars",
+                "change",
+                "roc",
+                "momentum",
+                "linreg",
+                "stdev",
+                "variance",
+                "mad",
+                "cog",
+                "correlation",
+                "alma",
+                "swma",
+                "dmi",
+            }
+        ):
             width = tuple_widths.get(name)
             return [None] * width if width is not None else None
-        if arguments and any(value is None for value in arguments) and name not in {
-            "crossover",
-            "crossunder",
-            "valuewhen",
-            "barssince",
-            "cum",
-            "vwap",
-            "obv",
-            "tr",
-        }:
+        if (
+            arguments
+            and any(value is None for value in arguments)
+            and name
+            not in {
+                "crossover",
+                "crossunder",
+                "valuewhen",
+                "barssince",
+                "cum",
+                "vwap",
+                "obv",
+                "tr",
+            }
+        ):
             self.approximations.add("ta.na_propagation")
             width = tuple_widths.get(name)
             return [None] * width if width is not None else None
@@ -3571,9 +3637,7 @@ class _PineRuntime:
             if isinstance(arguments[0], (list, tuple)) or isinstance(arguments[1], (list, tuple)):
                 self.approximations.add("tuple.cross")
                 left_values = (
-                    arguments[0]
-                    if isinstance(arguments[0], (list, tuple))
-                    else [arguments[0]]
+                    arguments[0] if isinstance(arguments[0], (list, tuple)) else [arguments[0]]
                 )
                 right_values = (
                     arguments[1]
@@ -3950,9 +4014,7 @@ class _PineRuntime:
             plus_di = 100 * plus_average / tr_average if tr_average else 0.0
             minus_di = 100 * minus_average / tr_average if tr_average else 0.0
             adx = (
-                100 * abs(plus_di - minus_di) / (plus_di + minus_di)
-                if plus_di + minus_di
-                else 0.0
+                100 * abs(plus_di - minus_di) / (plus_di + minus_di) if plus_di + minus_di else 0.0
             )
             return [plus_di, minus_di, adx]
         if name == "sar" and len(arguments) >= 2:
@@ -3976,15 +4038,31 @@ class _PineRuntime:
             )
         if name == "obv" and not arguments:
             return self._current_obv()
+        if name == "iii" and not arguments:
+            highs = self._ohlcv_series("high")
+            lows = self._ohlcv_series("low")
+            closes = self._ohlcv_series("close")
+            volumes = self._ohlcv_series("volume")
+            total = 0.0
+            for index in range(len(closes)):
+                bar_high = highs[index] if index < len(highs) else None
+                bar_low = lows[index] if index < len(lows) else None
+                close = closes[index]
+                volume = volumes[index] if index < len(volumes) else None
+                if bar_high is None or bar_low is None or close is None or volume is None:
+                    continue
+                if self._number(bar_high) == self._number(bar_low):
+                    continue
+                total += (
+                    (2 * self._number(close) - self._number(bar_high) - self._number(bar_low))
+                    / (self._number(bar_high) - self._number(bar_low))
+                ) * self._number(volume)
+            return total
         if not arguments:
             return None
         source = arguments[0]
         source_node = argument_nodes[0] if argument_nodes else None
-        if (
-            len(arguments) > 1
-            and arguments[1] is not None
-            and name != "anchored_vwap"
-        ):
+        if len(arguments) > 1 and arguments[1] is not None and name != "anchored_vwap":
             try:
                 raw_length = self._number(arguments[1])
             except BacktestValidationError:
@@ -4031,9 +4109,7 @@ class _PineRuntime:
                 if None in (high_value, low_value, close_value, volume_value):
                     continue
                 typical = (
-                    self._number(high_value)
-                    + self._number(low_value)
-                    + self._number(close_value)
+                    self._number(high_value) + self._number(low_value) + self._number(close_value)
                 ) / 3
                 numerator += typical * self._number(volume_value)
                 denominator += self._number(volume_value)
@@ -4260,9 +4336,7 @@ class _PineRuntime:
                 return 2 * first[-1] - second[-1] if first and second else None
             third = self._ema_series(second, length)
             return (
-                3 * first[-1] - 3 * second[-1] + third[-1]
-                if first and second and third
-                else None
+                3 * first[-1] - 3 * second[-1] + third[-1] if first and second and third else None
             )
         if name in {"sma", "ema", "rma", "wma", "hma"}:
             series = self._series_values_for_value(source, values, source_node)
@@ -4422,9 +4496,7 @@ class _PineRuntime:
     ) -> bool:
         if len(argument_nodes) < 2:
             return False
-        series = self._series_values_for_value(
-            arguments[0], values, argument_nodes[0]
-        )
+        series = self._series_values_for_value(arguments[0], values, argument_nodes[0])
         length = max(1, int(self._number(arguments[1])))
         if len(series) < length + 1:
             return False

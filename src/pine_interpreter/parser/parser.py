@@ -204,13 +204,16 @@ class Parser:
                 self._advance()
         return self._parse_expression()
 
-    def _parse_if_statement(self) -> IfStatement:
+    def _parse_if_statement(self, header_column: int | None = None) -> IfStatement:
         location = self._current.location
         self._advance()
         condition = self._parse_control_condition()
         self._expect_newline()
         then_branch = self._parse_body(location.column)
-        else_branch = self._parse_optional_else()
+        # An `else if` chain keeps the column of the original `else`, not the
+        # column of the chained `if` keyword.
+        column = location.column if header_column is None else header_column
+        else_branch = self._parse_optional_else(column)
         return IfStatement(location, condition, then_branch, else_branch)
 
     def _parse_if_expression(self) -> IfExpression:
@@ -222,7 +225,7 @@ class Parser:
         else_branch = self._parse_optional_else()
         return IfExpression(location, condition, then_branch, else_branch)
 
-    def _parse_optional_else(self) -> tuple[Statement, ...]:
+    def _parse_optional_else(self, header_column: int | None = None) -> tuple[Statement, ...]:
         if self._kind() not in {TokenType.NEWLINE, TokenType.DEDENT, TokenType.ELSE}:
             return ()
 
@@ -234,9 +237,13 @@ class Parser:
             return ()
 
         else_location = self._current.location
+        if header_column is not None and else_location.column < header_column:
+            # The `else` dedented past this `if`; it belongs to an outer block.
+            self._index = saved_index
+            return ()
         self._advance()
         if self._kind() is TokenType.IF:
-            return (self._parse_if_statement(),)
+            return (self._parse_if_statement(else_location.column),)
         self._expect_newline()
         return self._parse_body(else_location.column)
 

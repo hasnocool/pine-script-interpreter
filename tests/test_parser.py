@@ -259,3 +259,55 @@ g(value) =>
     assert isinstance(first, VariableDeclaration)
     assert first.name == "a"
     assert isinstance(second, ExpressionStatement)
+
+
+def test_parser_does_not_adopt_a_dedented_else_from_an_outer_if() -> None:
+    program = parse(
+        """
+if outer
+    for index = 0 to 2
+        if armed
+            if hit
+                dead = true
+else
+    fallback = 1
+after = 2
+"""
+    )
+
+    assert len(program.statements) == 2
+    outer = program.statements[0]
+    assert isinstance(outer, IfStatement)
+    assert outer.else_branch is not None
+    assert len(outer.else_branch) == 1
+    after = program.statements[1]
+    assert isinstance(after, VariableDeclaration)
+    assert after.name == "after"
+
+
+def test_parser_keeps_else_if_chains_at_the_outer_if_column() -> None:
+    program = parse(
+        """
+grade(value) =>
+    string label = str.upper(value)
+    float size = 1.0
+    if str.contains(label, "GOLD")
+        size := 100.0
+    else if str.contains(label, "SILVER")
+        size := 5000.0
+    else
+        size := 1.0
+    size
+"""
+    )
+
+    assert len(program.statements) == 1
+    function = program.statements[0]
+    assert isinstance(function, FunctionDeclaration)
+    branch = function.body[2]
+    assert isinstance(branch, IfStatement)
+    assert branch.else_branch is not None
+    chained = branch.else_branch[0]
+    assert isinstance(chained, IfStatement)
+    assert chained.else_branch is not None
+    assert isinstance(chained.else_branch[0], AssignmentStatement)

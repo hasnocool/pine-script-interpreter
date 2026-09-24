@@ -646,9 +646,9 @@ def test_unaffordable_orders_are_rejected_without_aborting_the_strategy() -> Non
             strategy.entry("Long", strategy.long, qty=1)
         """
     )
-    report = BacktestEngine(
-        BacktestConfig(initial_cash=150, default_qty=1, close_at_end=True)
-    ).run(source, make_candles([100, 100]))
+    report = BacktestEngine(BacktestConfig(initial_cash=150, default_qty=1, close_at_end=True)).run(
+        source, make_candles([100, 100])
+    )
 
     assert len(report) == 1
     assert "order.rejected_or_ignored" in report.approximations
@@ -1050,9 +1050,7 @@ def test_ra_inline_comma_chained_function_body_is_kept_local() -> None:
             strategy.entry("Long", strategy.long, qty=1)
         """
     )
-    report = BacktestEngine(BacktestConfig()).run(
-        source, make_candles([99, 101, 102, 103, 102])
-    )
+    report = BacktestEngine(BacktestConfig()).run(source, make_candles([99, 101, 102, 103, 102]))
     assert report.bars == 5
 
 
@@ -1092,6 +1090,56 @@ def test_ta_relative_volume_returns_numeric_triple() -> None:
     )
     assert len(report) == 1
     assert "ta.relativeVolume" in report.approximations
+
+
+def test_ta_iii_returns_a_cumulative_number() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("iii", overlay=true)
+        intensity = ta.iii
+        if bar_index == 2 and not na(intensity) and intensity >= 0
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 4
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 101, 102, 103, 104])
+    )
+    assert len(report) == 1
+
+
+def test_strategy_trade_report_members_return_numbers() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("trade report members", overlay=true)
+        if bar_index == 0
+            label = str.tostring(strategy.avg_trade_percent) + "," +
+                 str.tostring(strategy.avg_trade_count) + "," +
+                 str.tostring(strategy.avgwin_trades) + "," +
+                 str.tostring(strategy.avgloss_trades) + "," +
+                 str.tostring(strategy.avgwin_percent) + "," +
+                 str.tostring(strategy.avgloss_percent) + "," +
+                 str.tostring(strategy.trade_num) + "," +
+                 str.tostring(strategy.largestwin) + "," +
+                 str.tostring(strategy.largestloss) + "," +
+                 str.tostring(strategy.wintrades_percent) + "," +
+                 str.tostring(strategy.losstrades_percent) + "," +
+                 str.tostring(strategy.max_cons_loss_days) + "," +
+                 str.tostring(strategy.max_cons_win_trades)
+            if label != ""
+                strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 2
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 101, 102, 103, 104])
+    )
+    assert len(report) == 1
+    assert "strategy.avg_trade_percent" in report.approximations
 
 
 def test_position_avg_price_is_na_when_flat() -> None:
@@ -1179,9 +1227,7 @@ def test_syminfo_mincontract_is_numeric() -> None:
             strategy.close("Long")
         """
     )
-    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
-        source, make_candles([100, 101])
-    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(source, make_candles([100, 101]))
     assert len(report) == 1
     assert "syminfo.mincontract" in report.approximations
 
@@ -1198,9 +1244,7 @@ def test_strategy_convert_to_symbol_returns_number() -> None:
             strategy.close("Long")
         """
     )
-    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
-        source, make_candles([100, 101])
-    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(source, make_candles([100, 101]))
     assert len(report) == 1
 
 
@@ -1217,8 +1261,6 @@ def test_local_matrix_variable_methods_dispatch() -> None:
             strategy.close("Long")
         """
     )
-    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
-        source, make_candles([100, 101])
-    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(source, make_candles([100, 101]))
     assert len(report) == 1
     assert "matrix.method_call" in report.approximations
