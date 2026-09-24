@@ -171,6 +171,7 @@ _LEGACY_STYLE_NAMES = {
 }
 
 _MISSING = object()
+_UNEVALUATED = object()
 _OBJECT_TYPE_KEY = "__pine_type__"
 _OBJECT_METHODS_KEY = "__pine_methods__"
 _DRAWING_HANDLE_KEY = "__pine_drawing_handle__"
@@ -1761,11 +1762,14 @@ class _PineRuntime:
                 keywords[argument.name or ""] = self._evaluate(argument.value, values)
             else:
                 arguments.append(self._evaluate(argument, values))
+        receiver_known = False
         if isinstance(expression.callee, MemberExpression):
+            receiver_known = True
             try:
                 receiver = self._evaluate(expression.callee.object, values)
             except BacktestValidationError:
                 receiver = None
+                receiver_known = False
             if (
                 isinstance(receiver, list)
                 and expression.callee.property
@@ -1801,10 +1805,14 @@ class _PineRuntime:
                     expression.callee.property, [receiver, *arguments], keywords
                 )
         callee = self._callee_name(expression.callee)
+        # Reuse the receiver already evaluated above: re-evaluating it would
+        # run side effects twice, e.g. `array.shift().delete()` draining two
+        # elements per iteration.
+        resolved_receiver = receiver if receiver_known else _UNEVALUATED
         if callee is not None and "." in callee:
             namespace = callee.split(".", 1)[0]
             if namespace not in _BUILTIN_NAMESPACES:
-                dynamic_callee = self._dynamic_callee(expression.callee, values)
+                dynamic_callee = self._dynamic_callee(expression.callee, values, resolved_receiver)
                 if dynamic_callee is not None:
                     target, method_name = dynamic_callee
                     result = self._object_method(
@@ -1815,13 +1823,14 @@ class _PineRuntime:
                         values,
                     )
                     if result is not _MISSING:
+                        self._record_call_series(expression, result)
                         return result
                     # Method not implemented on the runtime value; fall through
                     # to `_call_named`, which resolves user-defined type
                     # constructors (State.new) and surfaces an explicit
                     # "unknown Pine builtin" error for anything else.
         if callee is None:
-            dynamic_callee = self._dynamic_callee(expression.callee, values)
+            dynamic_callee = self._dynamic_callee(expression.callee, values, resolved_receiver)
             if dynamic_callee is not None:
                 target, method_name = dynamic_callee
                 result = self._object_method(
@@ -1833,14 +1842,25 @@ class _PineRuntime:
                 )
                 if result is _MISSING:
                     raise BacktestValidationError(f"unsupported Pine call target: {method_name}")
+                self._record_call_series(expression, result)
                 return result
             raise BacktestValidationError("unsupported Pine call target")
         result = self._call_named(callee, arguments, argument_nodes, keywords, values, expression)
+        self._record_call_series(expression, result)
+        return result
+
+    def _record_call_series(self, expression: Expression, result: Any) -> None:
+        """Remember a call's result so `history` offsets resolve for it.
+
+        Every dispatch path must record: a `ta.*` call routed through
+        `_call_named` and a method call answered by `_object_method` are the
+        same kind of series node to later `[1]` lookups.
+        """
+
         key = self._series_key(expression)
         if key is not None and key.startswith("call:") and key not in self.call_seen:
             self.call_history.setdefault(key, []).append(result)
             self.call_seen.add(key)
-        return result
 
     def _lookup_function(self, name: str) -> FunctionDeclaration | None:
         if self._active_library is not None and "." not in name:
@@ -2984,6 +3004,10 @@ class _PineRuntime:
                 "set_border_color",
             }:
                 return None
+        if name == "copy" and isinstance(target, dict) and target.get(_OBJECT_TYPE_KEY):
+            # User-defined types are values, so `.copy()` duplicates the fields
+            # while keeping the type and its methods.
+            return {**target}
         method = self.methods.get(name)
         if method is not None:
             return self._call_function(
@@ -4904,15 +4928,17 @@ class _PineRuntime:
         self,
         expression: Expression,
         values: dict[str, Any],
+        target: Any = _UNEVALUATED,
     ) -> tuple[Any, str] | None:
         """Resolve method calls whose receiver is itself a call expression."""
 
         if not isinstance(expression, MemberExpression):
             return None
-        try:
-            target = self._evaluate(expression.object, values)
-        except BacktestValidationError:
-            return None
+        if target is _UNEVALUATED:
+            try:
+                target = self._evaluate(expression.object, values)
+            except BacktestValidationError:
+                return None
         if target is _MISSING:
             return None
         return target, expression.property

@@ -1221,6 +1221,84 @@ def test_array_slice_and_binary_search_return_values() -> None:
     assert len(report) == 1
 
 
+def test_method_call_on_side_effecting_receiver_evaluates_it_once() -> None:
+    # `array.shift()` has a side effect, so evaluating the receiver twice would
+    # drain two elements per loop iteration and under-run the loop body.
+    source = dedent(
+        """
+        //@version=6
+        strategy("shift once", overlay=true)
+        var handles = array.from(box.new(0, 0, 1, 1), box.new(0, 0, 2, 2), box.new(0, 0, 3, 3))
+        var int drained = 0
+        while handles.size() > 0
+            handles.shift().delete()
+            drained += 1
+        if bar_index == 0 and drained == 3
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 101, 102])
+    )
+    assert len(report) == 1
+
+
+def test_method_call_result_is_recorded_as_a_series() -> None:
+    # `box1.get_top()` is answered by the object-method path, but it is still a
+    # series node: a later `ta.crossover(low, box1.get_top())` needs its
+    # previous value, or every cross detection silently returns false.
+    source = dedent(
+        """
+        //@version=6
+        strategy("method series", overlay=true)
+        var box marker = box.new(0, 105, 1, 105)
+        if bar_index == 0
+            marker.set_top(close)
+        if bar_index == 2 and ta.crossover(low, marker.get_top())
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 4
+            strategy.close("Long")
+        """
+    )
+    candles = tuple(
+        Candle(
+            datetime(2024, 1, 1, tzinfo=UTC) + timedelta(days=index),
+            price,
+            price + 1,
+            price - 1,
+            price,
+            10,
+        )
+        for index, price in enumerate([100, 100, 104, 104, 106, 106])
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(source, candles)
+    assert len(report) == 1
+
+
+def test_user_defined_type_copy_duplicates_fields() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("udt copy", overlay=true)
+        type Settings
+            int level
+            bool armed
+        var Settings base = Settings.new(3, true)
+        var Settings clone = base.copy()
+        if bar_index == 0
+            clone.level := 9
+            if clone.level == 9 and base.level == 3
+                strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(source, make_candles([100, 101]))
+    assert len(report) == 1
+
+
 def test_position_avg_price_is_na_when_flat() -> None:
     source = dedent(
         """
