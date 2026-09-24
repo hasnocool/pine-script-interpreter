@@ -235,3 +235,27 @@ f2() =>
         if isinstance(statement, FunctionDeclaration)
     ]
     assert names == ["f1", "f2"]
+
+
+def test_parser_keeps_comma_chained_inline_function_body_local() -> None:
+    program = parse(
+        """
+f(x, p) => a = cum(x), (a - a[p]) / p
+g(value) =>
+    value * 2
+"""
+    )
+
+    names = [
+        statement.name
+        for statement in program.statements
+        if isinstance(statement, FunctionDeclaration)
+    ]
+    assert names == ["f", "g"]
+
+    function = program.statements[0]
+    assert isinstance(function, FunctionDeclaration)
+    first, second = function.body
+    assert isinstance(first, VariableDeclaration)
+    assert first.name == "a"
+    assert isinstance(second, ExpressionStatement)

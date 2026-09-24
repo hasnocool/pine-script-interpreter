@@ -503,7 +503,20 @@ class Parser:
             body = self._parse_block()
             body = self._extend_function_body(body, location.column)
         else:
-            body = (self._parse_statement(),)
+            # Pine v1-v3 legacy single-line bodies may chain statements with
+            # commas: `f(x) => a = cum(x), (a - a[p]) / p`.  Every comma
+            # separated part belongs to the function body; the final part is
+            # the return value.  Without this, the tail leaks out as a
+            # top-level statement and breaks sibling declarations.
+            statements = [self._parse_statement()]
+            while self._kind() is TokenType.COMMA:
+                self._advance()
+                if self._kind() in {TokenType.NEWLINE, TokenType.DEDENT, TokenType.EOF}:
+                    break
+                if self._at_statement_end():
+                    break
+                statements.append(self._parse_statement())
+            body = tuple(statements)
         return FunctionDeclaration(
             location,
             name,

@@ -131,6 +131,16 @@ _NAMESPACE_NAMES = set(NAMESPACE_MEMBERS) | {
     "order",
     "table",
 }
+# Namespaces that draw or manage locate their handlers inside `_call_named`
+# rather than `_member`; every other dotted callee whose first segment is not a
+# builtin namespace is treated as a runtime method call on a local value
+# (library alias, user-defined type instance, matrix handle, drawing handle, ...).
+_BUILTIN_NAMESPACES = _NAMESPACE_NAMES | {
+    "vwap",
+    "polyline",
+    "linefill",
+    "draw",
+}
 _TYPE_NAMES = {
     "bool",
     "const",
@@ -164,6 +174,7 @@ _MISSING = object()
 _OBJECT_TYPE_KEY = "__pine_type__"
 _OBJECT_METHODS_KEY = "__pine_methods__"
 _DRAWING_HANDLE_KEY = "__pine_drawing_handle__"
+_CHART_POINT_KEY = "__pine_chart_point__"
 
 
 class _Break(Exception):
@@ -632,6 +643,7 @@ class _PineRuntime:
         self.symbol = symbol
         self.timeframe = timeframe
         self.exchange = exchange
+        self._all_candles = list(candles)
         self.execution_started_at = time.perf_counter()
         completed_state = self._capture_execution_state()
         try:
@@ -1457,6 +1469,10 @@ class _PineRuntime:
                     return self._ta_call(expression.property, (), (), values, expression)
                 if expression.property == "pvt":
                     return self._current_pvt()
+                if expression.property == "accdist":
+                    return self._current_accdist()
+                if expression.property == "nvi":
+                    return self._current_nvi()
                 if expression.property == "dmi":
                     return [None, None, None]
                 return expression.property
@@ -1508,6 +1524,9 @@ class _PineRuntime:
                     "sector": "",
                     "volatility": 0.0,
                 }
+                if expression.property == "mincontract":
+                    self.approximations.add("syminfo.mincontract")
+                    return 0.001
                 if expression.property in dynamic:
                     return dynamic[expression.property]
             if name == "barstate":
@@ -1547,6 +1566,18 @@ class _PineRuntime:
                 return 0
             if name == "resolution":
                 return "1h"
+            if name == "chart":
+                if expression.property in {"left_visible_bar_time", "right_visible_bar_time"}:
+                    self.approximations.add("chart.visible_bar_time")
+                    candles = self._all_candles
+                    if not candles:
+                        return None
+                    timestamp = (
+                        candles[0].timestamp
+                        if expression.property == "left_visible_bar_time"
+                        else candles[-1].timestamp
+                    )
+                    return int(timestamp.timestamp()) if timestamp is not None else None
             if name in NAMESPACE_MEMBERS:
                 value = constant_value(name, expression.property)
                 return expression.property if value is None else value
@@ -1597,7 +1628,10 @@ class _PineRuntime:
                 return 0.0
             return position.quantity if position.side == "long" else -position.quantity
         if name == "position_avg_price":
-            return position.entry_price if position is not None else 0.0
+            # TradingView returns `na` when no position is open.  Returning a
+            # fabricated 0.0 here turns degenerate stop/limit brackets into
+            # invalid crossing orders (0.0 >= 0.0), aborting strategies.
+            return position.entry_price if position is not None else None
         if name == "initial_capital":
             return self.initial_cash
         if name == "account_currency":
@@ -1674,6 +1708,25 @@ class _PineRuntime:
                     expression.callee.property, [receiver, *arguments], keywords
                 )
         callee = self._callee_name(expression.callee)
+        if callee is not None and "." in callee:
+            namespace = callee.split(".", 1)[0]
+            if namespace not in _BUILTIN_NAMESPACES:
+                dynamic_callee = self._dynamic_callee(expression.callee, values)
+                if dynamic_callee is not None:
+                    target, method_name = dynamic_callee
+                    result = self._object_method(
+                        target,
+                        method_name,
+                        arguments,
+                        keywords,
+                        values,
+                    )
+                    if result is not _MISSING:
+                        return result
+                    # Method not implemented on the runtime value; fall through
+                    # to `_call_named`, which resolves user-defined type
+                    # constructors (State.new) and surfaces an explicit
+                    # "unknown Pine builtin" error for anything else.
         if callee is None:
             dynamic_callee = self._dynamic_callee(expression.callee, values)
             if dynamic_callee is not None:
@@ -1801,6 +1854,18 @@ class _PineRuntime:
             self._validate_type_value(value, field.type_annotation, values)
             object_value[field.name] = value
         return object_value
+
+    def _chart_point_call(self, name: str, arguments: Sequence[Any]) -> Any:
+        member = name[len("chart.point.") :] if name.startswith("chart.point.") else name
+        if member in {"from_index", "from_time"} and len(arguments) >= 2:
+            self.approximations.add("chart.point")
+            return {
+                _CHART_POINT_KEY: True,
+                "index": arguments[0],
+                "price": arguments[1],
+            }
+        self.approximations.add(f"chart.point.{member}")
+        return None
 
     def _call_named(
         self,
@@ -2141,7 +2206,11 @@ class _PineRuntime:
                 return self.symbol
             self.approximations.add(f"nontrading.{name}")
             return self._last_number(self._ohlcv_series("close"))
-        if name.startswith(("line.", "label.", "box.", "table.", "ticker.", "draw.", "linefill.")):
+        if name.startswith("chart.point"):
+            return self._chart_point_call(name, arguments)
+        if name.startswith(
+            ("line.", "label.", "box.", "table.", "ticker.", "draw.", "linefill.", "polyline.")
+        ):
             drawing_namespace, drawing_member = name.split(".", 1)
             if drawing_namespace == "ticker" and drawing_member in {"heikinashi", "renko"}:
                 self.approximations.add(f"ticker.{drawing_member}")
@@ -2297,7 +2366,9 @@ class _PineRuntime:
             return self._entry_quantity([], {})
         if name == "strategy.convert_to_symbol":
             self.approximations.add("strategy.convert_to_symbol")
-            return f"{self.symbol}:{arguments[0]}" if arguments else self.symbol
+            cash = self._number(arguments[0]) if arguments else self.initial_cash
+            close = self._last_number(self._ohlcv_series("close"))
+            return cash / close if close else 0.0
         if name == "strategy.opentrades":
             return self.broker.position
         if name == "strategy.closedtrades":
@@ -2319,27 +2390,7 @@ class _PineRuntime:
         if name.startswith("array."):
             return self._array_call(name[6:], arguments, keywords)
         if name.startswith("matrix."):
-            self.approximations.add("matrix.approximation")
-            member = name[7:]
-            if member in {"new", "new_float", "new_int"}:
-                rows = int(self._number(arguments[0])) if arguments else 0
-                columns = int(self._number(arguments[1])) if len(arguments) > 1 else 0
-                value = arguments[2] if len(arguments) > 2 else 0.0
-                return [[value for _ in range(max(0, columns))] for _ in range(max(0, rows))]
-            if member == "rows" and arguments and isinstance(arguments[0], list):
-                return len(arguments[0])
-            if member == "columns" and arguments and isinstance(arguments[0], list):
-                return len(arguments[0][0]) if arguments[0] else 0
-            if member == "get" and len(arguments) >= 3 and isinstance(arguments[0], list):
-                row = int(self._number(arguments[1]))
-                column = int(self._number(arguments[2]))
-                return arguments[0][row][column]
-            if member == "set" and len(arguments) >= 4 and isinstance(arguments[0], list):
-                row = int(self._number(arguments[1]))
-                column = int(self._number(arguments[2]))
-                arguments[0][row][column] = arguments[3]
-                return arguments[0]
-            return None
+            return self._matrix_method_call(name[7:], arguments, keywords)
         if name.startswith("map."):
             return self._map_call(name[4:], arguments)
         if name.startswith("str."):
@@ -2611,6 +2662,17 @@ class _PineRuntime:
                 return None
         return value
 
+    def _extract_point(self, value: Any) -> tuple[Any, Any] | None:
+        if not isinstance(value, dict):
+            return None
+        if value.get(_CHART_POINT_KEY):
+            return (value.get("index"), value.get("price"))
+        if value.get(_DRAWING_HANDLE_KEY):
+            index = value.get("index") or value.get("x") or value.get("left")
+            price = value.get("price") or value.get("y") or value.get("top")
+            return (index, price)
+        return None
+
     def _new_drawing_handle(
         self,
         kind: str,
@@ -2625,14 +2687,162 @@ class _PineRuntime:
             "linefill": ("line1", "line2", "color"),
             "ticker": ("symbol", "text"),
             "draw": ("value",),
+            "polyline": ("points", "line_color", "line_width"),
         }.get(kind, ())
+        # Pine v6 drawing constructors accept chart.point instances for the
+        # positional coordinates.  A point supplies both members of an X/Y
+        # pair, so it advances the pair rather than the single slot.
+        position_fields = {
+            "line": ("x1", "y1", "x2", "y2"),
+            "label": ("x", "y"),
+            "box": ("left", "top", "right", "bottom"),
+        }.get(kind)
         handle: dict[str, Any] = {_DRAWING_HANDLE_KEY: kind}
-        for index, value in enumerate(arguments):
-            if index < len(field_names):
-                handle[field_names[index]] = value
+        if position_fields is not None:
+            pair_cursor = 0
+            for index, value in enumerate(arguments[: len(position_fields)]):
+                point = self._extract_point(value)
+                if point is not None:
+                    pair_start = pair_cursor * 2
+                    handle[position_fields[pair_start]] = point[0]
+                    handle[position_fields[pair_start + 1]] = point[1]
+                    pair_cursor += 1
+                else:
+                    handle[position_fields[index]] = value
+            for index, value in enumerate(
+                arguments[len(position_fields) :], start=len(position_fields)
+            ):
+                if index < len(field_names):
+                    handle[field_names[index]] = value
+        else:
+            for index, value in enumerate(arguments):
+                if index < len(field_names):
+                    handle[field_names[index]] = value
         handle.update(keywords)
+        # Normalise any chart.point values supplied as keyword arguments.
+        horizontal = {"x", "x1", "x2", "left", "right"}
+        for key in ("x", "y", "x1", "y1", "x2", "y2", "left", "top", "right", "bottom"):
+            if key in handle:
+                point = self._extract_point(handle[key])
+                if point is not None:
+                    handle[key] = point[0] if key in horizontal else point[1]
+        if kind == "polyline" and "points" not in handle:
+            points: list[tuple[Any, Any]] = []
+            for value in arguments:
+                if value is None:
+                    continue
+                point = self._extract_point(value)
+                if point is not None:
+                    points.append(point)
+                elif isinstance(value, (list, tuple)):
+                    for item in value:
+                        item_point = self._extract_point(item)
+                        if item_point is not None:
+                            points.append(item_point)
+            handle["points"] = points
         self.approximations.add("drawing.handles")
         return handle
+
+    def _matrix_method_call(
+        self,
+        name: str,
+        arguments: Sequence[Any],
+        keywords: Mapping[str, Any] | None = None,
+    ) -> Any:
+        args = list(arguments)
+        named = dict(keywords or {})
+        if "id" in named and (not args or not isinstance(args[0], list)):
+            args.insert(0, named.pop("id"))
+        if name in {"new", "new_float", "new_int"}:
+            self.approximations.add("matrix.approximation")
+            if not args:
+                if "rows" not in named and "columns" not in named:
+                    return []
+                rows = max(0, int(self._number(named.get("rows", 0))))
+                columns = max(0, int(self._number(named.get("columns", 0))))
+                value = named.get("initial_value", 0.0)
+                return [[value for _ in range(columns)] for _ in range(rows)]
+            rows = max(0, int(self._number(args[0]))) if len(args) >= 1 else 0
+            columns = max(0, int(self._number(args[1]))) if len(args) >= 2 else 0
+            value = args[2] if len(args) >= 3 else 0.0
+            return [[value for _ in range(columns)] for _ in range(rows)]
+        if not args or not isinstance(args[0], list):
+            self.approximations.add("matrix.approximation")
+            return None
+        matrix = args[0]
+        self.approximations.add("matrix.method_call")
+        if name == "rows":
+            return len(matrix)
+        if name == "columns":
+            return len(matrix[0]) if matrix and isinstance(matrix[0], list) else 0
+        if name == "row" and len(args) >= 2 and args[1] is not None:
+            row = int(self._number(args[1]))
+            return matrix[row] if 0 <= row < len(matrix) else None
+        if name == "col" and len(args) >= 2 and args[1] is not None:
+            column = int(self._number(args[1]))
+            if not matrix or not isinstance(matrix[0], list):
+                return None
+            width = max(len(row) for row in matrix)
+            if not 0 <= column < width:
+                return None
+            return [row[column] for row in matrix if column < len(row)]
+        if name in {"add_row", "append"}:
+            row_array = args[1] if len(args) > 1 else named.get("array_id")
+            if row_array is not None:
+                if isinstance(row_array, (list, tuple)):
+                    matrix.append(list(row_array))
+                else:
+                    matrix.append([row_array])
+                return matrix
+            return matrix
+        if name == "remove_row" and len(args) >= 2 and args[1] is not None:
+            row = int(self._number(args[1]))
+            if 0 <= row < len(matrix):
+                matrix.pop(row)
+            return matrix
+        if name == "add_col":
+            column_array = args[1] if len(args) > 1 else named.get("array_id")
+            items = (
+                list(column_array)
+                if isinstance(column_array, (list, tuple))
+                else ([column_array] if column_array is not None else [])
+            )
+            for row_index in range(len(matrix)):
+                if not isinstance(matrix[row_index], list):
+                    continue
+                if row_index < len(items):
+                    matrix[row_index].append(items[row_index])
+                else:
+                    matrix[row_index].append(None)
+            return matrix
+        if name == "remove_col" and len(args) >= 2 and args[1] is not None:
+            column = int(self._number(args[1]))
+            for row in matrix:
+                if isinstance(row, list) and 0 <= column < len(row):
+                    row.pop(column)
+            return matrix
+        if name == "get" and len(args) >= 3:
+            row = int(self._number(args[1]))
+            column = int(self._number(args[2]))
+            return (
+                matrix[row][column]
+                if 0 <= row < len(matrix)
+                and isinstance(matrix[row], list)
+                and 0 <= column < len(matrix[row])
+                else None
+            )
+        if name == "set" and len(args) >= 4:
+            row = int(self._number(args[1]))
+            column = int(self._number(args[2]))
+            if (
+                0 <= row < len(matrix)
+                and isinstance(matrix[row], list)
+                and 0 <= column < len(matrix[row])
+            ):
+                matrix[row][column] = args[3]
+            return matrix
+        self.approximations.add(f"matrix.{name}")
+        return None
 
     def _object_method(
         self,
@@ -2657,15 +2867,22 @@ class _PineRuntime:
                 return target.get(name[4:])
             if name.startswith("set_"):
                 field_name = name[4:]
-                if field_name in {"xy1", "xy2", "lefttop", "rightbottom"} and len(arguments) >= 2:
+                if field_name in {"xy1", "xy2", "lefttop", "rightbottom"} and arguments:
                     first, second = {
                         "xy1": ("x1", "y1"),
                         "xy2": ("x2", "y2"),
                         "lefttop": ("left", "top"),
                         "rightbottom": ("right", "bottom"),
                     }[field_name]
-                    target[first] = arguments[0]
-                    target[second] = arguments[1]
+                    point = self._extract_point(arguments[0])
+                    if point is not None:
+                        target[first] = point[0]
+                        target[second] = point[1]
+                    elif len(arguments) >= 2:
+                        target[first] = arguments[0]
+                        target[second] = arguments[1]
+                    else:
+                        target[field_name] = arguments[0]
                 elif arguments:
                     target[field_name] = arguments[0]
                 return target
@@ -2680,6 +2897,21 @@ class _PineRuntime:
                 values if values is not None else self.values,
             )
         if isinstance(target, list):
+            if name in {
+                "rows",
+                "columns",
+                "row",
+                "col",
+                "add_row",
+                "remove_row",
+                "add_col",
+                "remove_col",
+                "swap_rows",
+                "swap_columns",
+                "flatten",
+                "reshape",
+            }:
+                return self._matrix_method_call(name, [target, *arguments], keywords)
             if target and isinstance(target[0], list) and name in {"get", "set"}:
                 if name == "get" and len(arguments) >= 2:
                     row = int(self._number(arguments[0]))
@@ -3155,6 +3387,47 @@ class _PineRuntime:
             ) / self._number(previous)
         return total
 
+    def _current_accdist(self) -> float:
+        """Chaikin accumulation/distribution line: cum(MFV)."""
+        closes = self._ohlcv_series("close")
+        highs = self._ohlcv_series("high")
+        lows = self._ohlcv_series("low")
+        volumes = self._ohlcv_series("volume")
+        total = 0.0
+        for index in range(len(closes)):
+            high = highs[index] if index < len(highs) else None
+            low = lows[index] if index < len(lows) else None
+            close = closes[index]
+            volume = volumes[index] if index < len(volumes) else None
+            if high is None or low is None or close is None or volume is None:
+                continue
+            if self._number(high) == self._number(low):
+                continue
+            money_flow_multiplier = (
+                (self._number(close) - self._number(low))
+                - (self._number(high) - self._number(close))
+            ) / (self._number(high) - self._number(low))
+            total += money_flow_multiplier * self._number(volume)
+        return total
+
+    def _current_nvi(self) -> float:
+        """Negative Volume Index: cumulative close change on down-volume bars."""
+        closes = self._ohlcv_series("close")
+        volumes = self._ohlcv_series("volume")
+        nvi = 1000.0
+        for index in range(1, len(closes)):
+            previous_close = closes[index - 1]
+            close = closes[index]
+            volume = volumes[index] if index < len(volumes) else None
+            previous_volume = volumes[index - 1] if index - 1 < len(volumes) else None
+            if close is None or previous_close in (None, 0) or volume is None:
+                continue
+            if previous_volume is not None and self._number(volume) < self._number(previous_volume):
+                nvi *= 1 + (self._number(close) - self._number(previous_close)) / self._number(
+                    previous_close
+                )
+        return nvi
+
     def _ta_call(
         self,
         name: str,
@@ -3177,6 +3450,24 @@ class _PineRuntime:
         if name == "stoch":
             # Pine Script v5 ta.stoch() returns scalar %K, not a tuple.
             name = "stoch_scalar"
+        if name == "relativeVolume":
+            # ta.relativeVolume(length, anchor, lookahead) -> [currentVolume, pastVolume, corr].
+            # The anchor timeframe string is approximated away; we scale the last
+            # bar's volume against the simple average over the lookback length.
+            self.approximations.add("ta.relativeVolume")
+            length = max(1, int(self._number(arguments[0]))) if arguments else 1
+            volumes = [
+                self._number(value)
+                for value in self._ohlcv_series("volume")[-length:]
+                if value is not None
+            ]
+            if not volumes:
+                return [None, None, 0.0]
+            past = sum(volumes) / len(volumes)
+            current = self._last_number(self._ohlcv_series("volume"))
+            if current is None:
+                return [0.0, past, 0.0]
+            return [current / past if past else 0.0, past, 0.0]
         if name == "donchian" and len(arguments) == 1:
             self.approximations.add("ta.legacy_default_source")
             length = int(self._number(arguments[0]))
@@ -3689,11 +3980,23 @@ class _PineRuntime:
             return None
         source = arguments[0]
         source_node = argument_nodes[0] if argument_nodes else None
-        length = (
-            int(self._number(arguments[1]))
-            if len(arguments) > 1 and arguments[1] is not None and name != "anchored_vwap"
-            else 1
-        )
+        if (
+            len(arguments) > 1
+            and arguments[1] is not None
+            and name != "anchored_vwap"
+        ):
+            try:
+                raw_length = self._number(arguments[1])
+            except BacktestValidationError:
+                # Unknown ta.* function reached the generic MA-style coercion
+                # with a non-numeric second argument (e.g. a timeframe anchor
+                # string).  There is no implementation for it; surface an
+                # explicit approximation instead of aborting the strategy.
+                self.approximations.add(f"ta.{name}.approximation")
+                return None
+            length = int(raw_length)
+        else:
+            length = 1
         if length <= 0:
             self.approximations.add("ta.invalid_length_na")
             return None
@@ -4208,10 +4511,16 @@ class _PineRuntime:
         limit: float | None,
     ) -> None:
         if stop is not None and limit is not None:
-            if side == "long" and stop >= limit:
+            if side == "long" and stop > limit:
                 raise BacktestValidationError("long stop must be below limit")
-            if side == "short" and stop <= limit:
+            if side == "short" and stop < limit:
                 raise BacktestValidationError("short stop must be above limit")
+            if stop == limit:
+                # Published scripts (e.g. touch/level entries) legitimately
+                # place both legs at the same price.  TradingView's tester
+                # accepts equality; treat it as a touch-level bracket instead
+                # of aborting the whole backtest.
+                self.approximations.add("order.stop_eq_limit")
         self.pending_entries = [
             order for order in self.pending_entries if order.order_id != order_id
         ]

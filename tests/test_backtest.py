@@ -1035,3 +1035,190 @@ def test_imported_user_defined_types_construct_and_dispatch_methods(tmp_path: Pa
     ).run(source, make_candles([100, 101, 102]))
 
     assert len(report) == 1
+
+
+def test_ra_inline_comma_chained_function_body_is_kept_local() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("comma chain", overlay=true, pyramiding=1)
+        normalize(x, p) =>
+            a = x
+            a - a[p]
+        signal = ta.cross(close, 100)
+        if signal and normalize(close, 1) > 0
+            strategy.entry("Long", strategy.long, qty=1)
+        """
+    )
+    report = BacktestEngine(BacktestConfig()).run(
+        source, make_candles([99, 101, 102, 103, 102])
+    )
+    assert report.bars == 5
+
+
+def test_ta_volume_indicators_members_return_numbers() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("volume members", overlay=true)
+        acc = ta.accdist
+        nvi = ta.nvi
+        if bar_index == 0 and not na(acc) and nvi > 0
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 101, 102])
+    )
+    assert len(report) == 1
+
+
+def test_ta_relative_volume_returns_numeric_triple() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("relative volume", overlay=true)
+        [current, past, corr] = ta.relativeVolume(3, "W", true)
+        if bar_index == 0 and current > 0 and past > 0 and corr == 0
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 101, 102, 103, 104])
+    )
+    assert len(report) == 1
+    assert "ta.relativeVolume" in report.approximations
+
+
+def test_position_avg_price_is_na_when_flat() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("flat avg price", overlay=true)
+        flat_price = strategy.position_avg_price
+        if bar_index == 0 and na(flat_price)
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1 and strategy.position_avg_price == 100
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 100, 101])
+    )
+    assert len(report) == 1
+
+
+def test_entry_with_stop_equal_to_limit_is_accepted() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("equal bracket", overlay=true)
+        if bar_index == 1
+            strategy.entry("Level", strategy.long, qty=1, stop=101, limit=101)
+        if bar_index == 3
+            strategy.close("Level")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 101, 102, 103])
+    )
+    assert len(report) == 1
+    assert "order.stop_eq_limit" in report.approximations
+
+
+def test_chart_point_from_index_feeds_label_and_box() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("chart points", overlay=true)
+        pos = chart.point.from_index(0, low)
+        if bar_index == 0
+            label.new(pos, "tag", color=color.navy)
+            box.new(pos, chart.point.from_index(2, high), bgcolor=color.new(color.green, 90))
+        if bar_index == 0 and pos.index == 0
+            strategy.entry("Long", strategy.long, qty=1)
+        """
+    )
+    report = BacktestEngine(BacktestConfig()).run(source, make_candles([100, 101, 102]))
+    assert report.bars == 3
+    assert "chart.point" in report.approximations
+
+
+def test_chart_visible_bar_times_are_numbers() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("visible bars", overlay=true)
+        left_time = chart.left_visible_bar_time
+        right_time = chart.right_visible_bar_time
+        if bar_index == 0 and left_time > 0 and right_time > left_time
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 101, 102])
+    )
+    assert len(report) == 1
+
+
+def test_syminfo_mincontract_is_numeric() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("min contract", overlay=true)
+        float step = syminfo.mincontract
+        if bar_index == 0 and step > 0
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 101])
+    )
+    assert len(report) == 1
+    assert "syminfo.mincontract" in report.approximations
+
+
+def test_strategy_convert_to_symbol_returns_number() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("convert to symbol", overlay=true)
+        converted = strategy.convert_to_symbol(1000)
+        if bar_index == 0 and converted > 0
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 101])
+    )
+    assert len(report) == 1
+
+
+def test_local_matrix_variable_methods_dispatch() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("local matrix", overlay=true)
+        drawnGraphics = matrix.new<float>(0, 0)
+        if bar_index == 0
+            if drawnGraphics.rows() == 0 and drawnGraphics.columns() == 0
+                strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source, make_candles([100, 101])
+    )
+    assert len(report) == 1
+    assert "matrix.method_call" in report.approximations
