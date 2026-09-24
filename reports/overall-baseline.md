@@ -4,7 +4,7 @@
 
 This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1h candles. It is intended to establish a broad technical baseline, not to certify strategies as profitable or safe.
 
-- **Run time:** 5h 57m 14s
+- **Run time:** 7m 51s
 - **Runtime version:** `0.3.1`
 - **Strategies attempted:** 6,081
 - **Produced completed trades:** 2,374
