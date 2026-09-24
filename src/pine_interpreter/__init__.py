@@ -78,7 +78,7 @@ from pine_interpreter.interpreter import ExecutionResult, Interpreter
 from pine_interpreter.lexer import Lexer, Token, TokenType
 from pine_interpreter.parser import Parser, Program
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 __all__ = [
     "BACKTEST_RUNTIME_VERSION",

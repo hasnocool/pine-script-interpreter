@@ -19,7 +19,7 @@ python -m pip install -e ".[backtest]"
 ```
 
 No API key is required for the public `fetch_ohlcv` endpoint. The package's
-current runtime version (`0.3.0`) is recorded in `BacktestReport` and batch metadata so
+current runtime version (`0.3.1`) is recorded in `BacktestReport` and batch metadata so
 results can be compared across releases.
 
 ## Quick start
@@ -88,6 +88,12 @@ The current model is intentionally small and inspectable:
 - `pyramiding`, initial cash, default quantity, percent-of-equity sizing, and
   cash sizing can be configured globally and overridden by common strategy
   declaration arguments.
+- Unaffordable or zero-quantity orders are rejected without mutating broker
+  state; the run records `order.rejected_or_ignored` or
+  `order.invalid_quantity_ignored` rather than aborting the whole strategy.
+- Legacy v2/v3 defaults, tuple-valued indicators, and common standard-library
+  `TradingView/ta/*` imports use marked compatibility approximations; these
+  are not claims of exact TradingView parity.
 - Step-limit and wall-clock interruptions restore the last completed-bar broker
   state and attach a `partial=True` report. Partial results remain excluded
   from rankings and successful-status counts.
@@ -109,6 +115,8 @@ language:
   instance methods, global methods, arrays/maps of objects, and imported
   user-defined types
 - common `math.*`, `array.*`, `map.*`, `str.*`, `input.*`, and Pine namespace constants
+- legacy v2/v3 input defaults and unqualified technical-analysis aliases, with
+  explicit tuple/`na` propagation markers
 - moving averages and statistics, RSI, stochastic, CCI, MFI, WPR/CMO, ATR/TR,
   MACD, Bollinger/Keltner/Donchian, Supertrend, ADX/DMI, Aroon, SAR, VWAP/VWMA,
   momentum/ROC, correlation, linear regression, value-when, and related
@@ -125,9 +133,11 @@ Every new builtin should have a deterministic policy and a regression test.
 Unknown functions are rejected explicitly; they are never silently converted
 into zero-valued signals or successful no-order runs. Nonessential chart/object
 construction calls may be explicit no-ops, but their output cannot affect
-orders. Invalid members, invalid lengths, and missing values are reported with
-stable error categories. See `RECOMMENDATIONS.md` for the compatibility
-roadmap and explicit remaining gaps.
+orders. Invalid members and unrecoverable missing values are reported with stable
+error categories. Invalid dynamic lengths, tuple-shape mismatches, and legacy
+library calls use explicit approximation markers when the runtime can continue
+without fabricating a successful order. See `RECOMMENDATIONS.md` for the
+compatibility roadmap and remaining gaps.
 
 ## Reproducible candle snapshots
 
@@ -240,8 +250,9 @@ pine-backtest-report \
 
 This creates `top-100-strategies.md` and `overall-baseline.md`. Only strategies
 with at least one completed trade and status `backtested` are eligible. The
-default `return` ranking uses lower drawdown as a tie-breaker; alternatives are
-`risk-adjusted` and `drawdown`.
+shortlist includes each result's approximation markers. The default `return`
+ranking uses lower drawdown as a tie-breaker; alternatives are `risk-adjusted`
+and `drawdown`.
 
 For a searchable local index and a small terminal explorer:
 

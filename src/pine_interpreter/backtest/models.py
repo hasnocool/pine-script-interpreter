@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any, overload
 
-BACKTEST_RUNTIME_VERSION = "0.3.0"
+BACKTEST_RUNTIME_VERSION = "0.3.1"
 
 
 class BacktestError(Exception):

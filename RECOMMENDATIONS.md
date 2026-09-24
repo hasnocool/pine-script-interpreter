@@ -5,7 +5,7 @@
 This document describes the features and abilities that should be added next to
 turn the archive-wide baseline into a useful Pine research platform.
 
-## Implementation status (runtime 0.3.0)
+## Implementation status (runtime 0.3.1)
 
 The first implementation pass is now in the repository. The original counts
 below are retained as the historical pre-runtime baseline; rerun the batch
@@ -30,23 +30,30 @@ Implemented in the current pass:
   methods, object arrays/maps, imported types, and drawing-handle approximations
 - named input defaults, common string/map helpers, and richer collection/object
   dispatch
+- legacy v2/v3 builtin aliases, tuple-valued indicator propagation, dynamic
+  `na` handling, and marked standard-library stubs for common TradingView TA
+  imports
+- non-mutating rejection of unaffordable/zero-quantity orders, with explicit
+  approximation markers
 - indexed JSON/CSV reports, plain-English Markdown, source/data/runtime
   provenance, and a SQLite result index/terminal explorer
 - chronological splits, walk-forward/OOS runs, parameter sweeps, market
   comparisons, risk metrics, and reproducible benchmark suites
 
-The latest local baseline (runtime `0.3.0`, cached Binance BTC/USDT `1h`
+The latest local baseline (runtime `0.3.1`, cached Binance BTC/USDT `1h`
 snapshot, 500 candles, 6,081 strategies) measured:
 
-- **862** strategies with completed trades
-- **2,583** no-order results
-- **2,569** validation errors
-- **49** execution-limit stops and **18** wall-clock timeout stops
-- **67** partial diagnostic snapshots
-- **0** runtime errors and **0** parse errors
+- **1,607** strategies with completed trades, up from 862 in runtime 0.3.0
+- **4,054** no-order results
+- **322** validation errors, down from 2,569 in runtime 0.3.0
+- **95** execution-limit stops and **0** wall-clock timeout stops
+- **95** partial diagnostic snapshots
+- **3** runtime errors and **0** parse errors
 
-This is a coverage report, not a profitability claim. The target archive is
-`Pine/TradingView`: 20,479 Pine files parse successfully, including the 6,081
+This is a coverage report, not a profitability claim. The compatibility delta
+is detailed in `reports/compatibility-delta.md`; it records 758 newly eligible
+strategies and a net gain of 745 completed-trade strategies. The target archive
+is `Pine/TradingView`: 20,479 Pine files parse successfully, including the 6,081
 strategy files used for the baseline. The result includes feature inventories,
 source hashes, the candle content hash, and explicit approximation markers.
 Re-run the batch after any runtime change rather than comparing these counts to
@@ -81,7 +88,7 @@ The earlier snapshot's largest recorded evaluation blockers were:
 | Missing objects or values | 32 | Object, tuple, and `request.*` semantics are incomplete. |
 | Cash or order-sizing failures | 25 | The broker needs a fuller position-sizing and margin model. |
 
-A strategy appearing high in the current 0.3.0 report is not automatically a
+A strategy appearing high in the current 0.3.1 report is not automatically a
 good investment. The current report is a technical baseline on one market, one
 timeframe, and one relatively short data sample.
 

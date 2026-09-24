@@ -124,8 +124,8 @@ def build_top_strategies_markdown(
     lines.extend(
         [
             "| Rank | Strategy | Completed trades | Return | Max drawdown | "
-            "Final equity | Source file |",
-            "| ---: | --- | ---: | ---: | ---: | ---: | --- |",
+            "Final equity | Approximation markers | Source file |",
+            "| ---: | --- | ---: | ---: | ---: | ---: | --- | --- |",
         ]
     )
     for rank, result in enumerate(selected, start=1):
@@ -139,6 +139,12 @@ def build_top_strategies_markdown(
                     _format_percent(result.total_return_pct),
                     _format_percent(result.max_drawdown_pct),
                     _format_number(result.final_equity),
+                    (
+                        "<br>".join(
+                            f"`{_escape_code(marker)}`" for marker in result.approximations
+                        )
+                        or "None"
+                    ),
                     f"`{_escape_code(_display_source_path(result.path))}`",
                 )
             )
@@ -159,6 +165,8 @@ def build_top_strategies_markdown(
             "- **Return** is the change in account equity from the starting cash balance.",
             "- **Max drawdown** is the largest peak-to-trough decline seen during the test.",
             "- **Completed trades** counts round trips; an open position is not counted.",
+            "- **Approximation markers** identify compact-runtime policies that "
+            "affected the run; `None` means no marker was recorded.",
             "- **Source file** identifies the archived Pine script by filename.",
             "",
             "The full machine-readable results remain in the companion JSON and CSV reports.",

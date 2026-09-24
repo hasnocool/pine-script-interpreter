@@ -113,8 +113,9 @@ pine-backtest-report \
 ```
 
 See [docs/backtesting.md](docs/backtesting.md) for supported built-ins,
-execution limits, report loading/indexing, and ranking options. The prioritized
-feature roadmap is in [RECOMMENDATIONS.md](RECOMMENDATIONS.md).
+execution limits, report loading/indexing, and ranking options. The runtime
+compatibility delta is summarized in `reports/compatibility-delta.md`. The
+prioritized feature roadmap is in [RECOMMENDATIONS.md](RECOMMENDATIONS.md).
 
 ## Design notes
 

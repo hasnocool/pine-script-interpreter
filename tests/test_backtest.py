@@ -255,6 +255,7 @@ def test_strategy_batch_indexes_results_and_records_failures(tmp_path: Path) -> 
     top_markdown = build_top_strategies_markdown(report, top_count=1)
     overall_markdown = build_overall_markdown(report, top_count=1)
     assert "# Top 1 Pine Strategies" in top_markdown
+    assert "Approximation markers" in top_markdown
     assert "# Overall Pine Backtest Baseline" in overall_markdown
     assert "Results at a glance" in overall_markdown
 
@@ -475,6 +476,26 @@ def test_local_library_imports_can_execute_exported_functions(tmp_path: Path) ->
     assert report[0].entry_price == 1
 
 
+def test_standard_tradingview_library_import_uses_a_marked_builtin_stub(tmp_path: Path) -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("standard library stub", overlay=true)
+        import TradingView/ta/7 as tv
+        average = tv.sma(close, 2)
+        if bar_index == 2 and average > 0
+            strategy.entry("Long", strategy.long, qty=1)
+        """
+    )
+    report = BacktestEngine(library_root=tmp_path).run(
+        source,
+        make_candles([100, 101, 102]),
+    )
+
+    assert report.bars == 3
+    assert any(marker.startswith("library.TradingView/ta/7") for marker in report.approximations)
+
+
 def test_partial_exit_records_trade_attribution_and_keeps_remainder() -> None:
     source = dedent(
         """
@@ -522,6 +543,95 @@ def test_library_imports_reject_missing_escape_and_circular_paths(tmp_path: Path
             '//@version=6\nstrategy("escape")\nimport "../outside" as m\nx = m.f()\n',
             make_candles([1, 1]),
         )
+
+
+def test_legacy_v2_helpers_named_inputs_and_tuple_series_are_compatible() -> None:
+    source = dedent(
+        """
+        //@version=3
+        strategy("legacy compatibility", overlay=true)
+        length = input(defval=3, title="Length", type=input.integer)
+        getMA(series, simple string mode, simple int window) =>
+            mode == "WMA" ? ta.wma(series, window) : ta.sma(series, window)
+        stochastic = ta.stoch(close, high, low, length)
+        smooth = getMA(stochastic, "SMA", 2)
+        numeric_flag = input(defval=true, type=input.bool)
+        numeric_value = math.floor(numeric_flag * 2)
+        if bar_index == 4 and numeric_value == 2
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 6
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102, 101, 100, 99, 100, 101]),
+    )
+
+    assert report.bars == 8
+    assert "ta.tuple_series" in report.approximations
+    assert "legacy.bool_numeric" in report.approximations
+
+
+def test_deterministic_random_policy_is_explicitly_marked() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("random approximation", overlay=true)
+        sample = math.random(0, 1)
+        if bar_index == 0 and sample >= 0 and sample <= 1
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101]),
+    )
+
+    assert len(report) == 1
+    assert "random.deterministic_midpoint" in report.approximations
+
+
+def test_unaffordable_orders_are_rejected_without_aborting_the_strategy() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("cash rejection", overlay=true)
+        if bar_index == 0
+            strategy.entry("Long", strategy.long, qty=2)
+        if bar_index == 1
+            strategy.entry("Long", strategy.long, qty=1)
+        """
+    )
+    report = BacktestEngine(
+        BacktestConfig(initial_cash=150, default_qty=1, close_at_end=True)
+    ).run(source, make_candles([100, 100]))
+
+    assert len(report) == 1
+    assert "order.rejected_or_ignored" in report.approximations
+
+
+def test_strategy_risk_and_order_group_constants_are_explicitly_approximated() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("risk namespace", overlay=true)
+        oca = strategy.oca.none
+        risk = strategy.risk.max_intraday_loss(1, strategy.percent_of_equity)
+        allowed = strategy.risk.allow_entry_in(direction=strategy.long)
+        if bar_index == 0 and oca == "none" and risk == 0 and allowed
+            strategy.entry("Long", strategy.long, qty=1)
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102]),
+    )
+
+    assert len(report) == 1
+    assert "strategy.risk.max_intraday_loss" in report.approximations
 
 
 def test_common_extended_ta_indicators_evaluate_without_runtime_errors() -> None:

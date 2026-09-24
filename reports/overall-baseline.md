@@ -4,15 +4,15 @@
 
 This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1h candles. It is intended to establish a broad technical baseline, not to certify strategies as profitable or safe.
 
-- **Run time:** 6m 7s
-- **Runtime version:** `0.3.0`
+- **Run time:** 12m 49s
+- **Runtime version:** `0.3.1`
 - **Strategies attempted:** 6,081
-- **Produced completed trades:** 862
-- **Ran without completed orders:** 2,583
-- **Could not be evaluated:** 2,636
-- **Saved partial interrupted results:** 67
-- **Used an explicit approximation:** 935
-- **Used a local Pine library:** 0
+- **Produced completed trades:** 1,607
+- **Ran without completed orders:** 4,054
+- **Could not be evaluated:** 420
+- **Saved partial interrupted results:** 95
+- **Used an explicit approximation:** 3,616
+- **Used a local Pine library:** 35
 - **Duplicate source groups:** 0
 - **Detailed shortlist:** See the companion `top-100-strategies.md` report.
 - **Candle period:** 2026-09-03T02:00:00+00:00 through 2026-09-23T21:00:00+00:00
@@ -23,21 +23,21 @@ This run attempted 6,081 archived Pine strategies against 500 binance BTC/USDT 1
 
 | Outcome | Count | What it means |
 | --- | ---: | --- |
-| Backtested with trades | 862 | The runtime ran and closed at least one trade. |
-| No orders | 2,583 | The runtime ran but did not close a trade on this data. |
-| Validation errors | 2,569 | The current runtime could not evaluate part of the strategy. |
-| Execution-limit stops | 49 | The strategy exceeded the safety step budget. |
-| Wall-clock timeout stops | 18 | The strategy exceeded the wall-clock budget; a partial snapshot may be saved. |
-| Runtime errors | 0 | An unexpected runtime problem stopped the strategy. |
+| Backtested with trades | 1,607 | The runtime ran and closed at least one trade. |
+| No orders | 4,054 | The runtime ran but did not close a trade on this data. |
+| Validation errors | 322 | The current runtime could not evaluate part of the strategy. |
+| Execution-limit stops | 95 | The strategy exceeded the safety step budget. |
+| Wall-clock timeout stops | 0 | The strategy exceeded the wall-clock budget; a partial snapshot may be saved. |
+| Runtime errors | 3 | An unexpected runtime problem stopped the strategy. |
 | Parse errors | 0 | The source could not be parsed. |
 
 ## Performance snapshot
 
-- **269** strategies with trades finished positive; **429** finished negative; **164** were approximately flat.
-- The median return among trade-producing strategies was **0.00%**; the average was **-22.65%**.
-- The median maximum drawdown was **1.72%**.
+- **477** strategies with trades finished positive; **759** finished negative; **371** were approximately flat.
+- The median return among trade-producing strategies was **0.00%**; the average was **-54718.68%**.
+- The median maximum drawdown was **1.76%**.
 - The strongest eligible result was **Tomukas Scale In V2\_\_14l4u5gJ** at **35735.39%**.
-- The weakest trade-producing result was **sonu1997\_\_FGELufUr** at **-41194.67%**.
+- The weakest trade-producing result was **4H CCI Strategy 1.4\_\_27DWrT5B** at **-29430038.20%**.
 
 ## Top candidates
 
@@ -46,15 +46,15 @@ The table below uses raw total return, highest first; lower drawdown breaks ties
 | Rank | Strategy | Trades | Return | Max drawdown |
 | ---: | --- | ---: | ---: | ---: |
 | 1 | Tomukas Scale In V2__14l4u5gJ | 4 | 35735.39% | 31005.17% |
-| 2 | WJ Strategy A__Oh8vgFgC | 1 | 70.07% | 7.15% |
-| 3 | WJ Strategy B__aw6frVKI | 1 | 59.10% | 6.95% |
-| 4 | multiple time frame strategy jiahejuzhen__6clgb3x4 | 42 | 53.01% | 127.90% |
-| 5 | SuperTrend Strategy with Trend Based Exits__1F66QJ5V | 499 | 50.59% | 124.41% |
-| 6 | Volatility Pulse with Dynamic Exit__03HpjkVN | 28 | 19.13% | 55.90% |
-| 7 | Donchian Breakout Strategy__laT8fTXp | 13 | 10.02% | 20.56% |
-| 8 | DRACO TOMAS EMA Trend Follower__Rf2N01q7 | 40 | 9.72% | 21.32% |
-| 9 | Gold Breakout PRO (Daily Filter)__PU4lrqHR | 26 | 9.61% | 20.41% |
-| 10 | Albtrader NQ BTC Gold Multi TF Signal Bot v2__ASHXoH1O | 33 | 9.56% | 21.75% |
+| 2 | No Nonsense NNFX VP Strategy for Back Testing Baseline jh__WyA5pZCd | 21 | 6523.00% | 8115394.68% |
+| 3 | Random ATR Strategy Bybit__xB5JtK12 | 15 | 4270.38% | 4270.23% |
+| 4 | GOLD EMA Crossover Strategy__FM0NqXZL | 21 | 2570.32% | 2595.23% |
+| 5 | 5M RSI Strategy__z61K5bxD | 53 | 1425.73% | 1838.37% |
+| 6 | MA cross strategy__yL42H3Gp | 7 | 1349.63% | 84468.38% |
+| 7 | My Strategy__HjlpiM3j | 7 | 1349.63% | 84468.38% |
+| 8 | [DS]Entry Exit TRADE.V01 Strategy__RO4rB2HF | 16 | 868.48% | 848.84% |
+| 9 | QQE Channel Strategy__c7V3XVUC | 8 | 854.02% | 800.44% |
+| 10 | DCA Strategy with Hedging__qgghEAli | 60 | 752.50% | 884.70% |
 
 ## Main evaluation blockers
 
@@ -62,18 +62,18 @@ These are the most common reasons a strategy could not be evaluated. They descri
 
 | Blocker | Strategies | Share of recorded errors |
 | --- | ---: | ---: |
-| Required numeric value was unavailable | 1,071 | 40.63% |
-| Order exceeded available cash | 470 | 17.83% |
-| Unknown Pine identifier or constant | 433 | 16.43% |
-| unknown Pine builtin | 250 | 9.48% |
-| imported Pine library was not found | 129 | 4.89% |
-| unknown strategy member | 93 | 3.53% |
-| Runaway loop or excessive runtime steps | 49 | 1.86% |
-| Invalid technical-analysis length | 44 | 1.67% |
-| order quantity must be positive and finite | 23 | 0.87% |
-| execution time limit exceeded (30s) | 18 | 0.68% |
-| Tuple assignment could not be matched | 13 | 0.49% |
-| strategy initial_capital must be positive | 10 | 0.38% |
+| Required numeric value was unavailable | 121 | 28.81% |
+| Runaway loop or excessive runtime steps | 95 | 22.62% |
+| imported Pine library was not found | 87 | 20.71% |
+| unknown Pine builtin | 44 | 10.48% |
+| Unknown Pine identifier or constant | 30 | 7.14% |
+| Unsupported call target | 17 | 4.05% |
+| unknown strategy member | 4 | 0.95% |
+| long stop must be below limit | 2 | 0.48% |
+| '<' not supported between instances of 'NoneType' and 'float' | 2 | 0.48% |
+| numeric result is out of range | 1 | 0.24% |
+| Données manquantes/invalides. Vérifiez | 1 | 0.24% |
+| Chart timeframe must be BELOW the signal timeframe. Recommended | 1 | 0.24% |
 
 ## Interrupted-run snapshots
 
@@ -81,16 +81,16 @@ These rows preserve accounting through the last completed bar. They are diagnost
 
 | Strategy | Stop reason | Completed bars | Completed trades | Final equity | Open side |
 | --- | --- | ---: | ---: | ---: | --- |
+| supertrend advance__Ld0TePxg | execution_limit | 486 | 0 | 10,000.00 | flat |
 | BTC Future Gamma Weighted Momentum Model (BGMM)__ksy34iRO | execution_limit | 480 | 0 | 10,000.00 | flat |
+| PMax Explorer STRATEGY & SCREENER__nHGK4Qtp | execution_limit | 449 | 0 | 10,000.00 | flat |
+| MTF MA Matrix Clean Base__qetKgBK2 | execution_limit | 448 | 0 | 100,000.00 | flat |
+| Adaptive Zero Lag EMA Strategy [Ehlers + Ric]__VJZsDbAb | execution_limit | 447 | 30 | 1,000.00 | flat |
+| Optimized Trend Tracker STRATEGY & SCREENER__HPbRZvsV | execution_limit | 444 | 0 | 10,000.00 | flat |
 | CleanTradeQuantum v7.2 OB FVG INTEGRATED__JeRCEqWU | execution_limit | 443 | 0 | 1,000.00 | flat |
+| Scalp Signal Bot 5 min v3.0.1__1BmQAGQi | execution_limit | 443 | 0 | 10,000.00 | flat |
 | Ehlers Combo Strategy__4v6Z04vI | execution_limit | 438 | 0 | 1,000.00 | flat |
-| TASC 2024.08 Volume Confirmation For A Trend System__K3s5dmdv | execution_timeout | 435 | 0 | 10,000.00 | flat |
 | Renko Strategy__bl1J6Tfj | execution_limit | 429 | 0 | 1,000.00 | flat |
-| BUY SELL on the levels only__okTkQZnL | execution_limit | 427 | 0 | 5,000.00 | flat |
-| Buy Sell on the levels__DPx9VRI9 | execution_limit | 427 | 0 | 5,000.00 | flat |
-| Rob Booker ADX Breakout updated to pinescript V5__qoaam9SI | execution_timeout | 420 | 0 | 100,000.00 | flat |
-| FluxGate Daily Swing Strategy__DMyXoeuY | execution_limit | 413 | 0 | 25,000.00 | flat |
-| meta capitulation__t7RRJhPX | execution_limit | 409 | 0 | 10,000.00 | flat |
 
 ## Slowest executions
 
@@ -98,16 +98,16 @@ These wall-clock measurements are profiling signals, not performance results.
 
 | Strategy | Status | Elapsed | Execution steps | Partial bars | Partial trades |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Volatility Traders Minds Strategy (VTM Strategy)__nDPVOul3 | execution_timeout | 30.384s | 18280 | 358 | 0 |
-| Turtle Strategy Triple EMA Trend with ADX and ATR__vzXlqRCT | execution_timeout | 30.264s | 16692 | 387 | 0 |
-| NSDT HAMA Candles STRAT__B4dBAINf | execution_timeout | 30.256s | 48825 | 361 | 0 |
-| Average Directional Index v2__7Ijtq4XE | execution_timeout | 30.174s | 5502 | 392 | 0 |
-| Glory Hole with SMA + ADX Strategy__4RfzhZy0 | execution_timeout | 30.163s | 5398 | 357 | 9 |
-| Build A Bot Hull Trigger__mDTcC8j8 | execution_timeout | 30.162s | 13288 | 379 | 0 |
-| Ultimate Balance Strategy__WTmh8KER | execution_timeout | 30.128s | 15681 | 382 | 0 |
-| Chande Kroll Stop + ADX filter strategy__vOZX6yfP | execution_timeout | 30.126s | 6981 | 385 | 11 |
-| Build A Bot__hEefxAIm | execution_timeout | 30.125s | 13262 | 378 | 3 |
-| R19 STRATEGY__2LOPRpQH | execution_timeout | 30.116s | 31819 | 407 | 0 |
+| trend Screener List1__7vCW7aKc | no_orders | 23.720s | 163660 | n/a | n/a |
+| trend Screener downtrend__4BFsvEy2 | no_orders | 23.497s | 163740 | n/a | n/a |
+| Smooth Moving Average Ribbon [STRATEGY] @PuppyTherapy__x9Qk7yMI | execution_limit | 20.903s | 250001 | 105 | 0 |
+| Smooth Moving Average [STRATEGY] @PuppyTherapy__nSjqOv9m | execution_limit | 18.732s | 250001 | 251 | 0 |
+| CleanTradeQuantum v7.2 OB FVG INTEGRATED__JeRCEqWU | execution_limit | 17.800s | 250001 | 443 | 0 |
+| SVT 30M Options Swing Indicator__vAVhJe1C | no_orders | 11.972s | 115027 | n/a | n/a |
+| Strategy NNFX Tester__yveRmB4r | execution_limit | 11.146s | 250001 | 270 | 0 |
+| FTSMA Trend is your frend__wffJotUo | execution_limit | 10.486s | 250001 | 291 | 0 |
+| Oscillating Market Case Study__N9bH0tbl | execution_limit | 10.312s | 250001 | 391 | 1 |
+| MTF MA Matrix Clean Base__qetKgBK2 | execution_limit | 10.210s | 250001 | 448 | 0 |
 
 ## Important interpretation notes
 
