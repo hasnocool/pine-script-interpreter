@@ -3,9 +3,10 @@
 The existing project runtime intentionally covers only a basic expression
 subset.  This module adds a separate execution path for common Pine
 strategies: declarations, series references, moving averages, crossover
-signals, and ``strategy.entry``/``strategy.close`` orders.  Unsupported
-plotting and nonessential Pine built-ins are accepted and ignored so a
-strategy can be validated without implementing the entire TradingView API.
+signals, and ``strategy.entry``/``strategy.close`` orders. Unsupported
+plotting and other nonessential Pine built-ins are accepted only as explicit
+runtime approximations so a strategy can be evaluated without implementing
+the entire TradingView API.
 """
 
 from __future__ import annotations
@@ -72,6 +73,7 @@ from pine_interpreter.parser.ast_nodes import (
     SwitchStatement,
     TupleDeclaration,
     TypeDeclaration,
+    TypeReference,
     UnaryExpression,
     VariableDeclaration,
     WhileStatement,
@@ -123,6 +125,7 @@ _NAMESPACE_NAMES = set(NAMESPACE_MEMBERS) | {
     "matrix",
     "map",
     "position",
+    "order",
     "table",
 }
 _TYPE_NAMES = {
@@ -142,6 +145,9 @@ _TYPE_NAMES = {
 }
 
 _MISSING = object()
+_OBJECT_TYPE_KEY = "__pine_type__"
+_OBJECT_METHODS_KEY = "__pine_methods__"
+_DRAWING_HANDLE_KEY = "__pine_drawing_handle__"
 
 
 class _Break(Exception):
@@ -166,6 +172,13 @@ class _OpenPosition:
     entry_timestamp: datetime
     entry_fee: float
     entries_count: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class _BrokerState:
+    cash: float
+    position: _OpenPosition | None
+    trades: tuple[Trade, ...]
 
 
 class _Broker:
@@ -307,6 +320,35 @@ class _Broker:
     def close_all(self, price: float, index: int, timestamp: datetime) -> Trade | None:
         return self.close(price, index, timestamp, reason="close_all")
 
+    def snapshot(self) -> _BrokerState:
+        """Capture completed accounting state for an interrupted-run artifact."""
+
+        position = self.position
+        return _BrokerState(
+            cash=self.cash,
+            position=(
+                _OpenPosition(
+                    position.side,
+                    position.quantity,
+                    position.entry_price,
+                    position.entry_index,
+                    position.entry_timestamp,
+                    position.entry_fee,
+                    position.entries_count,
+                )
+                if position is not None
+                else None
+            ),
+            trades=tuple(self.trades),
+        )
+
+    def restore(self, state: _BrokerState) -> None:
+        """Restore a state captured at the last completed candle."""
+
+        self.cash = state.cash
+        self.position = state.position
+        self.trades = list(state.trades)
+
     def equity(self, price: float) -> float:
         if self.position is None:
             return self.cash
@@ -355,6 +397,15 @@ class _PendingEntry:
     placed_index: int
 
 
+@dataclass(frozen=True, slots=True)
+class _ExecutionState:
+    broker: _BrokerState
+    initial_cash: float
+    pending_entries: tuple[_PendingEntry, ...]
+    pending_exits: tuple[tuple[str, _PendingExit], ...]
+    approximations: tuple[str, ...]
+
+
 class _PineRuntime:
     """Evaluate one parsed Pine program against normalized candles."""
 
@@ -389,6 +440,8 @@ class _PineRuntime:
         self._library_stack: tuple[Path, ...] = ()
         self._active_library: Program | None = None
         self.functions: dict[str, FunctionDeclaration] = {}
+        self.methods: dict[str, FunctionDeclaration] = {}
+        self.types: dict[str, TypeDeclaration] = {}
         self.enums: dict[str, dict[str, Any]] = {}
         self.current_candle: Candle | None = None
         self.current_index = -1
@@ -408,9 +461,18 @@ class _PineRuntime:
         for statement in self.program.statements:
             if isinstance(statement, FunctionDeclaration):
                 self.functions[statement.name] = statement
+                if statement.method:
+                    self.methods[statement.name] = statement
                 self._function_owner[id(statement)] = self.program
+            elif isinstance(statement, TypeDeclaration):
+                self.types[statement.name] = statement
+                self._register_type_methods(statement, self.program)
             elif isinstance(statement, EnumDeclaration):
                 self.enums[statement.name] = self._enum_values(statement)
+
+    def _register_type_methods(self, declaration: TypeDeclaration, owner: Program) -> None:
+        for method in declaration.methods:
+            self._function_owner[id(method)] = owner
 
     def _load_import(self, declaration: ImportDeclaration, owner: Program) -> None:
         if self.library_root is None:
@@ -456,6 +518,13 @@ class _PineRuntime:
             for statement in library_program.statements:
                 if isinstance(statement, FunctionDeclaration):
                     self._function_owner[id(statement)] = library_program
+                    if statement.method:
+                        self.methods.setdefault(statement.name, statement)
+                elif isinstance(statement, TypeDeclaration):
+                    self.types.setdefault(statement.name, statement)
+                    self._register_type_methods(statement, library_program)
+                elif isinstance(statement, EnumDeclaration):
+                    self.enums.setdefault(statement.name, self._enum_values(statement))
                 elif isinstance(statement, ImportDeclaration):
                     self._load_import(statement, library_program)
         finally:
@@ -493,61 +562,164 @@ class _PineRuntime:
         self.timeframe = timeframe
         self.exchange = exchange
         self.execution_started_at = time.perf_counter()
-        for index, candle in enumerate(candles):
-            self._check_pending_entries(candle, index)
-            self._check_pending_exits(candle, index)
-            self.current_candle = candle
-            self.current_index = index
-            self.call_seen.clear()
-            self.values = {
-                "open": candle.open,
-                "high": candle.high,
-                "low": candle.low,
-                "close": candle.close,
-                "volume": candle.volume,
-                "time": int(candle.timestamp.timestamp()),
-                "timenow": candle.timestamp,
-                "bar_index": index,
-                "last_bar_index": len(candles) - 1,
-                "na": None,
-            }
-            self.values.update(self.persistent)
-            for statement in self.program.statements:
-                self._execute_statement(statement, self.values)
-            if self.config.funding_rate_bps:
-                self.broker.apply_funding(candle.close)
-                self.approximations.add("funding.per_bar")
-            equity = self.broker.equity(candle.close)
-            self._equity_history.append(equity)
-            peak = max(peak, equity)
-            equity_curve.append(EquityPoint(index, candle.timestamp, equity, peak - equity))
-            self._record_history()
-        if candles and self.config.close_at_end:
-            last = candles[-1]
-            self.broker.close_all(last.close, len(candles) - 1, last.timestamp)
-            equity = self.broker.cash
-            if equity_curve:
-                point = equity_curve[-1]
-                equity_curve[-1] = EquityPoint(
-                    point.index, point.timestamp, equity, max(0.0, peak - equity)
+        completed_state = self._capture_execution_state()
+        try:
+            for index, candle in enumerate(candles):
+                self._check_pending_entries(candle, index)
+                self._check_pending_exits(candle, index)
+                self.current_candle = candle
+                self.current_index = index
+                self.call_seen.clear()
+                self.values = {
+                    "open": candle.open,
+                    "high": candle.high,
+                    "low": candle.low,
+                    "close": candle.close,
+                    "volume": candle.volume,
+                    "time": int(candle.timestamp.timestamp()),
+                    "timenow": candle.timestamp,
+                    "bar_index": index,
+                    "last_bar_index": len(candles) - 1,
+                    "na": None,
+                }
+                self.values.update(self.persistent)
+                for statement in self.program.statements:
+                    self._execute_statement(statement, self.values)
+                if self.config.funding_rate_bps:
+                    self.broker.apply_funding(candle.close)
+                    self.approximations.add("funding.per_bar")
+                equity = self.broker.equity(candle.close)
+                self._equity_history.append(equity)
+                peak = max(peak, equity)
+                equity_curve.append(EquityPoint(index, candle.timestamp, equity, peak - equity))
+                self._record_history()
+                completed_state = self._capture_execution_state()
+            if candles and self.config.close_at_end:
+                last = candles[-1]
+                self.broker.close_all(last.close, len(candles) - 1, last.timestamp)
+                equity = self.broker.cash
+                if equity_curve:
+                    point = equity_curve[-1]
+                    equity_curve[-1] = EquityPoint(
+                        point.index, point.timestamp, equity, max(0.0, peak - equity)
+                    )
+                    if self._equity_history:
+                        self._equity_history[-1] = equity
+        except (BacktestExecutionLimitError, BacktestExecutionTimeoutError) as exc:
+            self._restore_execution_state(completed_state)
+            exc.partial_report = self._build_report(
+                name,
+                symbol,
+                timeframe,
+                exchange,
+                candles,
+                equity_curve,
+                partial=True,
+            )
+            raise
+        return self._build_report(
+            name,
+            symbol,
+            timeframe,
+            exchange,
+            candles,
+            equity_curve,
+            partial=False,
+        )
+
+    def _capture_execution_state(self) -> _ExecutionState:
+        return _ExecutionState(
+            broker=self.broker.snapshot(),
+            initial_cash=self.initial_cash,
+            pending_entries=tuple(
+                _PendingEntry(
+                    order.order_id,
+                    order.side,
+                    order.quantity,
+                    order.stop,
+                    order.limit,
+                    order.placed_index,
                 )
-                if self._equity_history:
-                    self._equity_history[-1] = equity
+                for order in self.pending_entries
+            ),
+            pending_exits=tuple(
+                (
+                    side,
+                    _PendingExit(
+                        pending.stop,
+                        pending.limit,
+                        pending.from_entry,
+                        pending.quantity,
+                    ),
+                )
+                for side, pending in self.pending_exits.items()
+            ),
+            approximations=tuple(self.approximations),
+        )
+
+    def _restore_execution_state(self, state: _ExecutionState) -> None:
+        self.broker.restore(state.broker)
+        self.initial_cash = state.initial_cash
+        self.pending_entries = list(state.pending_entries)
+        self.pending_exits = {
+            side: _PendingExit(
+                pending.stop,
+                pending.limit,
+                pending.from_entry,
+                pending.quantity,
+            )
+            for side, pending in state.pending_exits
+        }
+        self.approximations = set(state.approximations)
+
+    def _build_report(
+        self,
+        name: str,
+        symbol: str,
+        timeframe: str,
+        exchange: str,
+        candles: Sequence[Candle],
+        equity_curve: Sequence[EquityPoint],
+        *,
+        partial: bool,
+    ) -> BacktestReport:
+        mark_index = len(equity_curve) - 1 if partial and equity_curve else len(candles) - 1
+        mark_price = candles[mark_index].close if candles and mark_index >= 0 else self.initial_cash
+        final_equity = (
+            equity_curve[-1].equity
+            if partial and equity_curve
+            else self.broker.equity(mark_price) if candles else self.initial_cash
+        )
+        position = self.broker.position
+        open_position = (
+            {
+                "side": position.side,
+                "quantity": position.quantity,
+                "entry_price": position.entry_price,
+                "entry_index": position.entry_index,
+                "entry_timestamp": position.entry_timestamp.isoformat(),
+                "unrealized_pnl": self.broker.unrealized(mark_price),
+            }
+            if position is not None
+            else None
+        )
         return BacktestReport(
             name,
             symbol,
             timeframe,
             exchange,
             self.initial_cash,
-            self.broker.equity(candles[-1].close) if candles else self.initial_cash,
+            final_equity,
             tuple(self.broker.trades),
             tuple(equity_curve),
-            len(candles),
+            len(equity_curve) if partial else len(candles),
             self.execution_steps,
             tuple(sorted(self.approximations)),
             BACKTEST_RUNTIME_VERSION,
             self.config,
             tuple(sorted(self.library_dependencies)),
+            partial,
+            open_position,
         )
 
     def _check_pending_entries(self, candle: Candle, index: int) -> None:
@@ -701,11 +873,13 @@ class _PineRuntime:
                     values[statement.name] = self.persistent[statement.name]
                     return values[statement.name]
                 value = self._evaluate(statement.value, values)
+                self._validate_type_value(value, statement.type_annotation, values)
                 values[statement.name] = value
                 self.persistent[statement.name] = value
                 self.persistent_names.add(statement.name)
                 return value
             value = self._evaluate(statement.value, values)
+            self._validate_type_value(value, statement.type_annotation, values)
             values[statement.name] = value
             self.history.setdefault(statement.name, [])
             return value
@@ -770,6 +944,8 @@ class _PineRuntime:
             return self._execute_switch(statement.subject, statement.cases, values)
         if isinstance(statement, FunctionDeclaration):
             self.functions[statement.name] = statement
+            if statement.method:
+                self.methods[statement.name] = statement
             return None
         if isinstance(statement, (TypeDeclaration, EnumDeclaration, ImportDeclaration)):
             return None
@@ -852,7 +1028,7 @@ class _PineRuntime:
                 return expression.name
             if expression.name in _NAMESPACE_NAMES:
                 return expression.name
-            if expression.name in _TYPE_NAMES:
+            if expression.name in _TYPE_NAMES or expression.name in self.types:
                 return expression.name
             if expression.name == "tickerid":
                 return "UNKNOWN"
@@ -1018,9 +1194,9 @@ class _PineRuntime:
                 if expression.property == "isseconds":
                     return self.timeframe.lower().endswith("s")
                 if expression.property == "in_seconds":
-                    return (
-                        int(self.timeframe[:-1]) * 60 if self.timeframe.lower().endswith("m") else 0
-                    )
+                    return self._timeframe_call("in_seconds", ())
+                if expression.property == "change":
+                    return self._timeframe_call("change", ())
             if name == "syminfo":
                 dynamic = {
                     "tickerid": self.symbol,
@@ -1082,8 +1258,12 @@ class _PineRuntime:
             return self.broker.equity(price)
         if name == "netprofit":
             return self.broker.equity(price) - self.initial_cash
+        if name == "netprofit_percent":
+            return (self.broker.equity(price) - self.initial_cash) / self.initial_cash * 100
         if name == "openprofit":
             return self.broker.unrealized(price)
+        if name == "openprofit_percent":
+            return self.broker.unrealized(price) / self.initial_cash * 100
         if name == "grossprofit":
             return sum(trade.pnl for trade in self.broker.trades if trade.pnl > 0)
         if name == "grossloss":
@@ -1122,6 +1302,19 @@ class _PineRuntime:
                 arguments.append(self._evaluate(argument, values))
         callee = self._callee_name(expression.callee)
         if callee is None:
+            dynamic_callee = self._dynamic_callee(expression.callee, values)
+            if dynamic_callee is not None:
+                target, method_name = dynamic_callee
+                result = self._object_method(
+                    target,
+                    method_name,
+                    arguments,
+                    keywords,
+                    values,
+                )
+                if result is _MISSING:
+                    raise BacktestValidationError(f"unsupported Pine call target: {method_name}")
+                return result
             raise BacktestValidationError("unsupported Pine call target")
         result = self._call_named(callee, arguments, argument_nodes, keywords, values, expression)
         key = self._series_key(expression)
@@ -1144,6 +1337,98 @@ class _PineRuntime:
                 return imported
         return self.functions.get(name)
 
+    def _lookup_type(self, name: str) -> TypeDeclaration | None:
+        """Resolve a local, imported, or namespaced Pine user-defined type."""
+
+        if self._active_library is not None and "." not in name:
+            imported = next(
+                (
+                    statement
+                    for statement in self._active_library.statements
+                    if isinstance(statement, TypeDeclaration) and statement.name == name
+                ),
+                None,
+            )
+            if imported is not None:
+                return imported
+        direct = self.types.get(name)
+        if direct is not None:
+            return direct
+        if "." in name:
+            namespace, type_name = name.split(".", 1)
+            library = self._library_imports.get(id(self._active_library), {}).get(namespace)
+            if library is None:
+                library = self.libraries.get(namespace)
+            if library is not None:
+                return next(
+                    (
+                        statement
+                        for statement in library.statements
+                        if isinstance(statement, TypeDeclaration)
+                        and statement.name == type_name
+                    ),
+                    None,
+                )
+        return None
+
+    def _validate_type_value(
+        self,
+        value: Any,
+        annotation: TypeReference | None,
+        values: dict[str, Any],
+    ) -> Any:
+        """Apply conservative runtime checks for user-defined object types."""
+
+        if annotation is None or value is None:
+            return value
+        declaration = self._lookup_type(annotation.name)
+        if declaration is None:
+            return value
+        if not isinstance(value, dict) or value.get(_OBJECT_TYPE_KEY) != declaration.name:
+            raise BacktestValidationError(
+                f"expected {annotation.name} object, got {type(value).__name__}"
+            )
+        return value
+
+    def _construct_type(
+        self,
+        declaration: TypeDeclaration,
+        arguments: Sequence[Any],
+        keywords: Mapping[str, Any],
+        values: dict[str, Any],
+        node: Node,
+    ) -> dict[str, Any]:
+        """Construct a small dictionary-backed approximation of a Pine object."""
+
+        field_names = {field.name for field in declaration.fields}
+        unknown = set(keywords) - field_names
+        if unknown:
+            raise BacktestValidationError(
+                f"unknown field for {declaration.name}: {sorted(unknown)[0]}"
+            )
+        if len(arguments) > len(declaration.fields):
+            raise BacktestValidationError(
+                f"too many arguments for {declaration.name}.new"
+            )
+        object_value: dict[str, Any] = {
+            _OBJECT_TYPE_KEY: declaration.name,
+            _OBJECT_METHODS_KEY: {
+                method.name: method for method in declaration.methods
+            },
+        }
+        for index, field in enumerate(declaration.fields):
+            if field.name in keywords:
+                value = keywords[field.name]
+            elif index < len(arguments):
+                value = arguments[index]
+            elif field.value is not None:
+                value = self._evaluate(field.value, values)
+            else:
+                value = None
+            self._validate_type_value(value, field.type_annotation, values)
+            object_value[field.name] = value
+        return object_value
+
     def _call_named(
         self,
         name: str,
@@ -1153,6 +1438,11 @@ class _PineRuntime:
         values: dict[str, Any],
         node: Node,
     ) -> Any:
+        if name.endswith(".new"):
+            type_name = name[:-4]
+            declaration = self._lookup_type(type_name)
+            if declaration is not None:
+                return self._construct_type(declaration, arguments, keywords, values, node)
         if name == "strategy":
             initial_cash = keywords.get("initial_capital")
             if initial_cash is not None:
@@ -1266,7 +1556,38 @@ class _PineRuntime:
         if name == "security" and len(arguments) >= 3:
             self.approximations.add("request.security")
             return arguments[2]
-        if name.startswith(("line.", "label.", "box.", "table.", "ticker.", "draw.")):
+        if name.startswith("timeframe."):
+            return self._timeframe_call(name[10:], arguments)
+        if name in {
+            "plot",
+            "plotarrow",
+            "plotbar",
+            "plotcandle",
+            "plotchar",
+            "plotkline",
+            "plotshape",
+            "hline",
+            "bgcolor",
+            "barcolor",
+            "fill",
+        } or name.startswith("log."):
+            self.approximations.add("plotting.non_trading")
+            return None
+        if name == "tostring":
+            return self._string_call("tostring", arguments)
+        if name == "dayofweek":
+            return self._time_call("weekday", arguments)
+        if name in {"heikinashi", "ha"}:
+            self.approximations.add("heikinashi.ohlc")
+            return self._heikinashi_values()
+        if name in {"rising", "falling"} and len(arguments) >= 2:
+            return self._rising_falling(name, arguments, argument_nodes, values)
+        if name.startswith(("line.", "label.", "box.", "table.", "ticker.", "draw.", "linefill.")):
+            drawing_namespace, drawing_member = name.split(".", 1)
+            if drawing_member == "new":
+                return self._new_drawing_handle(drawing_namespace, arguments, keywords)
+            if drawing_member.startswith(("style_", "location_")):
+                return drawing_member
             return None
         if name == "na":
             return arguments[0] if arguments else None
@@ -1275,6 +1596,10 @@ class _PineRuntime:
                 arguments[0]
                 if arguments and arguments[0] is not None
                 else (arguments[1] if len(arguments) > 1 else 0)
+            )
+        if name == "runtime.error":
+            raise BacktestValidationError(
+                str(arguments[0]) if arguments else "Pine runtime.error was called"
             )
         if name == "fixnan":
             return (
@@ -1339,10 +1664,16 @@ class _PineRuntime:
                 return self.input_overrides[str(title)]
             key = f"{name}:{arguments!r}:{keywords!r}"
             if key not in self.input_cache:
-                self.input_cache[key] = arguments[0] if arguments else None
+                self.input_cache[key] = (
+                    arguments[0]
+                    if arguments
+                    else keywords.get("defval", keywords.get("default", keywords.get("value")))
+                )
             return self.input_cache[key]
         if name.startswith("array."):
             return self._array_call(name[6:], arguments)
+        if name.startswith("map."):
+            return self._map_call(name[4:], arguments)
         if name.startswith("str."):
             return self._string_call(name[4:], arguments)
         if name.startswith("color."):
@@ -1380,9 +1711,22 @@ class _PineRuntime:
         if name in {"max", "min", "round", "floor", "ceil", "sqrt", "pow", "avg"}:
             return self._math_call(name, arguments)
         if "." in name:
-            target_name, method_name = name.split(".", 1)
-            if target_name in values:
-                dynamic = self._object_method(values[target_name], method_name, arguments)
+            path = name.split(".")
+            target_name, *property_path = path
+            target = values.get(target_name, _MISSING)
+            for property_name in property_path[:-1]:
+                if not isinstance(target, dict):
+                    target = _MISSING
+                    break
+                target = target.get(property_name, _MISSING)
+            if target is not _MISSING:
+                dynamic = self._object_method(
+                    target,
+                    property_path[-1],
+                    arguments,
+                    keywords,
+                    values,
+                )
                 if dynamic is not _MISSING:
                     return dynamic
         function = self._lookup_function(name)
@@ -1437,7 +1781,74 @@ class _PineRuntime:
                 raise BacktestValidationError("numeric result is out of range") from exc
         return numbers[0]
 
-    def _object_method(self, target: Any, name: str, arguments: Sequence[Any]) -> Any:
+    def _new_drawing_handle(
+        self,
+        kind: str,
+        arguments: Sequence[Any],
+        keywords: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        field_names = {
+            "line": ("x1", "y1", "x2", "y2", "extend", "color", "style", "width"),
+            "label": ("x", "y", "text", "tooltip", "textcolor", "style", "size", "color"),
+            "box": ("left", "top", "right", "bottom", "border_color", "border_width", "bgcolor"),
+            "table": ("columns", "rows", "bgcolor", "frame_color", "frame_width"),
+            "linefill": ("line1", "line2", "color"),
+            "ticker": ("symbol", "text"),
+            "draw": ("value",),
+        }.get(kind, ())
+        handle: dict[str, Any] = {_DRAWING_HANDLE_KEY: kind}
+        for index, value in enumerate(arguments):
+            if index < len(field_names):
+                handle[field_names[index]] = value
+        handle.update(keywords)
+        self.approximations.add("drawing.handles")
+        return handle
+
+    def _object_method(
+        self,
+        target: Any,
+        name: str,
+        arguments: Sequence[Any],
+        keywords: Mapping[str, Any] | None = None,
+        values: dict[str, Any] | None = None,
+    ) -> Any:
+        if isinstance(target, dict) and target.get(_OBJECT_TYPE_KEY):
+            methods = target.get(_OBJECT_METHODS_KEY, {})
+            method = methods.get(name) if isinstance(methods, dict) else None
+            if method is not None:
+                return self._call_function(
+                    method,
+                    [target, *arguments],
+                    keywords or {},
+                    values if values is not None else self.values,
+                )
+        if isinstance(target, dict) and _DRAWING_HANDLE_KEY in target:
+            if name.startswith("get_"):
+                return target.get(name[4:])
+            if name.startswith("set_"):
+                field_name = name[4:]
+                if field_name in {"xy1", "xy2", "lefttop", "rightbottom"} and len(arguments) >= 2:
+                    first, second = {
+                        "xy1": ("x1", "y1"),
+                        "xy2": ("x2", "y2"),
+                        "lefttop": ("left", "top"),
+                        "rightbottom": ("right", "bottom"),
+                    }[field_name]
+                    target[first] = arguments[0]
+                    target[second] = arguments[1]
+                elif arguments:
+                    target[field_name] = arguments[0]
+                return target
+            if name in {"delete", "cell", "clear", "set_bgcolor", "set_border_color"}:
+                return None
+        method = self.methods.get(name)
+        if method is not None:
+            return self._call_function(
+                method,
+                [target, *arguments],
+                keywords or {},
+                values if values is not None else self.values,
+            )
         if isinstance(target, list):
             if target and isinstance(target[0], list) and name in {"get", "set"}:
                 if name == "get" and len(arguments) >= 2:
@@ -1530,14 +1941,14 @@ class _PineRuntime:
                 return target
         if isinstance(target, dict):
             if name == "get" and arguments:
-                return target.get(self._string_key(arguments[0]))
+                return target.get(self._map_key(arguments[0]))
             if name == "put" and len(arguments) >= 2:
-                target[self._string_key(arguments[0])] = arguments[1]
+                target[self._map_key(arguments[0])] = arguments[1]
                 return arguments[1]
             if name == "contains_key" and arguments:
-                return self._string_key(arguments[0]) in target
+                return self._map_key(arguments[0]) in target
             if name == "remove" and arguments:
-                return target.pop(self._string_key(arguments[0]), None)
+                return target.pop(self._map_key(arguments[0]), None)
             if name == "keys":
                 return list(target)
             if name == "values":
@@ -1591,11 +2002,49 @@ class _PineRuntime:
             return arguments[0]
         return None
 
+    def _map_call(self, name: str, arguments: Sequence[Any]) -> Any:
+        if name in {"new", "new_string", "new_int", "new_float", "new_bool"}:
+            return {}
+        if not arguments or not isinstance(arguments[0], dict):
+            return None
+        target = arguments[0]
+        if name == "size":
+            return len(target)
+        if name in {"get", "contains_key"} and len(arguments) >= 2:
+            key = self._map_key(arguments[1])
+            return key in target if name == "contains_key" else target.get(key)
+        if name == "put" and len(arguments) >= 3:
+            target[self._map_key(arguments[1])] = arguments[2]
+            return target
+        if name == "remove" and len(arguments) >= 2:
+            return target.pop(self._map_key(arguments[1]), None)
+        if name == "keys":
+            return list(target)
+        if name == "values":
+            return list(target.values())
+        if name == "clear":
+            target.clear()
+            return target
+        return None
+
+    @staticmethod
+    def _map_key(value: Any) -> Any:
+        try:
+            hash(value)
+        except TypeError:
+            return str(value)
+        return value
+
     def _string_call(self, name: str, arguments: Sequence[Any]) -> Any:
         if not arguments or arguments[0] is None:
             return None
         value = str(arguments[0])
         if name == "tostring":
+            if len(arguments) > 1 and arguments[1] is not None:
+                try:
+                    return format(value, str(arguments[1]))
+                except (TypeError, ValueError):
+                    return value
             return value
         if name == "length":
             return len(value)
@@ -1603,13 +2052,50 @@ class _PineRuntime:
             return value.upper()
         if name == "lower":
             return value.lower()
+        if name == "trim":
+            return value.strip()
         if name == "contains" and len(arguments) > 1:
             return str(arguments[1]) in value
-        if name == "replace" and len(arguments) > 2:
+        if name in {"startswith", "endswith"} and len(arguments) > 1:
+            return value.startswith(str(arguments[1])) if name == "startswith" else value.endswith(
+                str(arguments[1])
+            )
+        if name in {"replace", "replace_all"} and len(arguments) > 2:
             return value.replace(str(arguments[1]), str(arguments[2]))
         if name == "split" and len(arguments) > 1:
             separator = str(arguments[1])
             return list(value) if not separator else value.split(separator)
+        if name == "tonumber":
+            try:
+                return float(value)
+            except ValueError:
+                return None
+        if name == "format" and len(arguments) > 1:
+            template = value
+            try:
+                return template.format(*arguments[1:])
+            except (IndexError, KeyError, ValueError):
+                return template
+        if name == "format_time" and len(arguments) > 1:
+            timestamp = arguments[0]
+            if isinstance(timestamp, (int, float)):
+                timestamp = datetime.fromtimestamp(float(timestamp), UTC)
+            if isinstance(timestamp, datetime):
+                return timestamp.strftime(str(arguments[1]))
+        if name == "substring" and len(arguments) > 2:
+            start = max(0, int(self._number(arguments[1])))
+            end = (
+                len(value)
+                if arguments[2] is None
+                else min(len(value), int(self._number(arguments[2])))
+            )
+            return value[start:end]
+        if name == "repeat" and len(arguments) > 1:
+            return value * max(0, int(self._number(arguments[1])))
+        if name == "reverse":
+            return value[::-1]
+        if name == "pos" and len(arguments) > 1:
+            return value.find(str(arguments[1]))
         return None
 
     def _ohlcv_series(self, name: str) -> list[Any]:
@@ -2259,6 +2745,99 @@ class _PineRuntime:
             )
         return None
 
+    def _timeframe_call(self, name: str, arguments: Sequence[Any]) -> Any:
+        timeframe = str(arguments[0]) if arguments else self.timeframe
+        raw_timeframe = timeframe.strip()
+        normalized = raw_timeframe.lower()
+        if name == "change":
+            self.approximations.add("timeframe.change")
+            return False
+        if name == "in_seconds":
+            multiplier = normalized[:-1] if normalized and normalized[-1].isalpha() else normalized
+            try:
+                amount = float(multiplier)
+            except ValueError:
+                return 0
+            unit = raw_timeframe[-1] if raw_timeframe and raw_timeframe[-1].isalpha() else "s"
+            factors = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+            if unit == "M":
+                return int(amount * 30 * 86400)
+            return int(amount * factors.get(unit.lower(), 1))
+        if name == "from_seconds" and arguments:
+            try:
+                seconds = int(self._number(arguments[0]))
+            except BacktestValidationError:
+                return None
+            for suffix, size in (("d", 86400), ("h", 3600), ("m", 60), ("s", 1)):
+                if seconds and seconds % size == 0:
+                    return f"{seconds // size}{suffix}"
+            return f"{seconds}s"
+        if name in {"isdaily", "isweekly", "ismonthly", "isintraday", "isminutes", "isseconds"}:
+            return self._member_timeframe_flag(name, timeframe)
+        return None
+
+    @staticmethod
+    def _member_timeframe_flag(name: str, timeframe: str) -> bool:
+        raw = timeframe.strip()
+        normalized = raw.lower()
+        if name == "isdaily":
+            return normalized.endswith("d")
+        if name == "isweekly":
+            return normalized.endswith("w")
+        if name == "ismonthly":
+            return raw.endswith("M") or normalized.endswith("mo")
+        if name == "isminutes":
+            return normalized.endswith("m") and not raw.endswith("M")
+        if name == "isseconds":
+            return normalized.endswith("s")
+        return not normalized.endswith(("d", "w", "mo")) and not raw.endswith("M")
+
+    def _heikinashi_values(self) -> tuple[float, float, float, float]:
+        candle = self.current_candle
+        if candle is None:
+            return (0.0, 0.0, 0.0, 0.0)
+        current_close = (candle.open + candle.high + candle.low + candle.close) / 4
+        previous = self.history.get("close", [])
+        if previous:
+            previous_close = self.history.get("open", [candle.open])[-1]
+            previous_low = self.history.get("low", [candle.low])[-1]
+            previous_high = self.history.get("high", [candle.high])[-1]
+            previous_close_value = self.history.get("close", [candle.close])[-1]
+            previous_ha_close = (
+                previous_close + previous_high + previous_low + previous_close_value
+            ) / 4
+        else:
+            previous_ha_close = current_close
+        ha_open = (previous_ha_close + current_close) / 2
+        return (
+            ha_open,
+            max(candle.high, ha_open),
+            min(candle.low, ha_open),
+            current_close,
+        )
+
+    def _rising_falling(
+        self,
+        name: str,
+        arguments: Sequence[Any],
+        argument_nodes: Sequence[Expression],
+        values: dict[str, Any],
+    ) -> bool:
+        if len(argument_nodes) < 2:
+            return False
+        series = self._series_values_for_value(
+            arguments[0], values, argument_nodes[0]
+        )
+        length = max(1, int(self._number(arguments[1])))
+        if len(series) < length + 1:
+            return False
+        recent = series[-(length + 1) :]
+        if any(value is None for value in recent):
+            return False
+        if name == "rising":
+            return all(left < right for left, right in zip(recent, recent[1:], strict=False))
+        return all(left > right for left, right in zip(recent, recent[1:], strict=False))
+
     def _time_call(self, name: str, arguments: Sequence[Any]) -> Any:
         timestamp = (
             arguments[0]
@@ -2502,6 +3081,7 @@ class _PineRuntime:
                 value = self._evaluate(parameter.default, caller_values)
             else:
                 value = None
+            self._validate_type_value(value, parameter.type_annotation, caller_values)
             local[parameter.name] = value
         old_values = self.values
         old_active_library = self._active_library
@@ -2511,12 +3091,31 @@ class _PineRuntime:
             result: Any = None
             for statement in function.body:
                 result = self._execute_statement(statement, local)
+            self._validate_type_value(result, function.return_type, local)
             return result
         except _Return as returned:
+            self._validate_type_value(returned.value, function.return_type, local)
             return returned.value
         finally:
             self.values = old_values
             self._active_library = old_active_library
+
+    def _dynamic_callee(
+        self,
+        expression: Expression,
+        values: dict[str, Any],
+    ) -> tuple[Any, str] | None:
+        """Resolve method calls whose receiver is itself a call expression."""
+
+        if not isinstance(expression, MemberExpression):
+            return None
+        try:
+            target = self._evaluate(expression.object, values)
+        except BacktestValidationError:
+            return None
+        if target is _MISSING:
+            return None
+        return target, expression.property
 
     def _callee_name(self, expression: Expression) -> str | None:
         if isinstance(expression, (Identifier, NaLiteral)):

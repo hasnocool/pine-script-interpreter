@@ -48,6 +48,9 @@ class BatchResultIndex:
                 max_drawdown_pct REAL,
                 elapsed_seconds REAL NOT NULL,
                 execution_steps INTEGER,
+                partial_bars INTEGER,
+                partial_trades INTEGER,
+                partial_final_equity REAL,
                 result_json TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS strategy_results_status
@@ -67,6 +70,15 @@ class BatchResultIndex:
             self.connection.execute(
                 "ALTER TABLE strategy_results ADD COLUMN library_dependencies TEXT"
             )
+        for column, declaration in (
+            ("partial_bars", "INTEGER"),
+            ("partial_trades", "INTEGER"),
+            ("partial_final_equity", "REAL"),
+        ):
+            if column not in columns:
+                self.connection.execute(
+                    f"ALTER TABLE strategy_results ADD COLUMN {column} {declaration}"
+                )
         self.connection.commit()
 
     def replace_report(self, report: BatchBacktestReport) -> None:
@@ -103,8 +115,9 @@ class BatchResultIndex:
                 INSERT INTO strategy_results(
                     path, name, source_hash, library_dependencies, status, error_category, error,
                     trades, final_equity, total_return_pct, max_drawdown_pct,
-                    elapsed_seconds, execution_steps, result_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    elapsed_seconds, execution_steps, partial_bars, partial_trades,
+                    partial_final_equity, result_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (self._result_row(result) for result in report.results),
             )
@@ -125,6 +138,9 @@ class BatchResultIndex:
             result.max_drawdown_pct,
             result.elapsed_seconds,
             result.execution_steps,
+            result.partial_report.bars if result.partial_report is not None else None,
+            len(result.partial_report.trades) if result.partial_report is not None else None,
+            result.partial_report.final_equity if result.partial_report is not None else None,
             json.dumps(result.to_dict(), sort_keys=True),
         )
 
@@ -187,7 +203,8 @@ class BatchResultIndex:
             SELECT path, name, source_hash, library_dependencies, status,
                    error_category, error, trades,
                    final_equity, total_return_pct, max_drawdown_pct,
-                   elapsed_seconds, execution_steps, result_json
+                   elapsed_seconds, execution_steps, partial_bars, partial_trades,
+                   partial_final_equity, result_json
             FROM strategy_results
             {where}
             ORDER BY {order}

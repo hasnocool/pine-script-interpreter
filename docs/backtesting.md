@@ -19,7 +19,7 @@ python -m pip install -e ".[backtest]"
 ```
 
 No API key is required for the public `fetch_ohlcv` endpoint. The package's
-current runtime version is recorded in `BacktestReport` and batch metadata so
+current runtime version (`0.3.0`) is recorded in `BacktestReport` and batch metadata so
 results can be compared across releases.
 
 ## Quick start
@@ -88,6 +88,9 @@ The current model is intentionally small and inspectable:
 - `pyramiding`, initial cash, default quantity, percent-of-equity sizing, and
   cash sizing can be configured globally and overridden by common strategy
   declaration arguments.
+- Step-limit and wall-clock interruptions restore the last completed-bar broker
+  state and attach a `partial=True` report. Partial results remain excluded
+  from rankings and successful-status counts.
 
 This is not a full exchange margin engine. For example, funding is charged per
 bar rather than reconstructed from an exchange's historical funding ledger.
@@ -102,7 +105,10 @@ language:
   `last_bar_index`, and bounded series history such as `close[1]`
 - declarations, assignments, `if`/`else`, common `for`/`while`/`switch` forms,
   tuple declarations, user functions, enums, and `var`/`varip` state
-- common `math.*`, `array.*`, `str.*`, `input.*`, and Pine namespace constants
+- dictionary-backed user-defined types, `Type.new()` constructors, mutating
+  instance methods, global methods, arrays/maps of objects, and imported
+  user-defined types
+- common `math.*`, `array.*`, `map.*`, `str.*`, `input.*`, and Pine namespace constants
 - moving averages and statistics, RSI, stochastic, CCI, MFI, WPR/CMO, ATR/TR,
   MACD, Bollinger/Keltner/Donchian, Supertrend, ADX/DMI, Aroon, SAR, VWAP/VWMA,
   momentum/ROC, correlation, linear regression, value-when, and related
@@ -147,20 +153,25 @@ the run, or at least its content hash and provenance.
 
 ## Full strategy baseline
 
-The batch runner discovers every `.pine` file in an archive's `Strategies/`
-directory, fetches the selected market once, and runs independent files in
-parallel:
+The batch runner discovers every `.pine` file in a flat archive's `Strategies/`
+directory or the populated source group in a grouped download tree, fetches
+the selected market once, and runs independent files in parallel:
 
 ```bash
 pine-backtest-batch \
-  --root /path/to/PineScripts_All \
+  --root /path/to/Pine \
+  --libraries /path/to/Pine/TradingView/Libraries \
   --exchange binance \
   --symbol BTC/USDT \
   --timeframe 1h \
   --limit 500 \
   --workers 8 \
+  --cash 10000 \
+  --fee 0.001 \
+  --qty 0.001 \
   --max-steps 250000 \
   --timeout-seconds 30 \
+  --intrabar-policy stop_first \
   --cache reports/.cache-btcusdt-1h.json \
   --output reports/baseline-btcusdt-1h.json \
   --csv reports/baseline-btcusdt-1h.csv
@@ -169,8 +180,11 @@ pine-backtest-batch \
 The command shows progress, rate, and ETA on stderr. The JSON report contains
 source hashes, stable status/error categories, validation issues, feature
 inventories, approximation markers, execution-step counts, data metadata,
-duplicate-source groups, and one normalized result per strategy. The CLI can
-automatically use `<root>/Libraries`; use `--libraries` to override it.
+duplicate-source groups, partial interrupted-run snapshots (including completed
+bars, completed trades, equity, and any open-position snapshot), slowest-execution
+profiling, and one normalized result per strategy. The CLI can automatically
+use the matching `<root>/Libraries` directory in either layout; use
+`--libraries` to override it.
 `--validate-only` parses and performs semantic checks without fetching candles
 or executing orders.
 
@@ -180,14 +194,14 @@ The batch API exposes the same controls:
 from pine_interpreter import BacktestConfig, discover_strategy_files, run_strategy_batch
 
 report = run_strategy_batch(
-    discover_strategy_files("/path/to/PineScripts_All"),
+    discover_strategy_files("/path/to/Pine"),
     candles,
     exchange="binance",
     symbol="BTC/USDT",
     timeframe="1h",
     config=BacktestConfig(default_qty=0.001, allow_short=True),
     max_workers=8,
-    library_root="/path/to/PineScripts_All/Libraries",
+    library_root="/path/to/Pine/TradingView/Libraries",
 )
 report.write_json("baseline.json")
 report.write_csv("baseline.csv")
@@ -208,7 +222,8 @@ for trade in report:
 ```
 
 Reports include return, drawdown, win rate, profit factor, completed trades,
-execution steps, and an indexed equity curve. `risk_metrics(report)` adds
+execution steps, an indexed equity curve, and explicit `partial` provenance for
+interrupted runs. `risk_metrics(report)` adds
 annualized return/volatility, Sharpe, Sortino, Calmar, expectancy, profit
 factor, average holding period, and time in market.
 
@@ -276,8 +291,10 @@ unrestricted optimization engine.
 ## Limitations and safe use
 
 - The runtime does not execute arbitrary Python or system code from Pine files.
-- Historical `request.*`, object/tuple behavior, charting calls, exchange
-  margin, funding ledgers, and some Pine type/qualifier rules remain partial.
+- Historical `request.*`, charting handles, exchange margin, funding ledgers,
+  and some Pine type/qualifier rules remain partial. User-defined objects are
+  intentionally represented by inspectable dictionaries rather than a full
+  reference-type runtime.
 - Pending orders use a candle-level model, not tick-level replay.
 - Results can differ from TradingView because of data, fill, cost, and session
   assumptions. Compare the stored runtime version and configuration first.

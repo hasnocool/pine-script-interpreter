@@ -16,6 +16,7 @@ from pine_interpreter.parser.ast_nodes import (
     MemberExpression,
     Node,
     NumberLiteral,
+    TypeDeclaration,
     WhileStatement,
 )
 
@@ -101,6 +102,8 @@ def analyze_source(source: str) -> SemanticReport:
 
 
 def _walk(node: Any, features: set[str], issues: list[ValidationIssue]) -> None:
+    if isinstance(node, TypeDeclaration):
+        features.add(f"type.{node.name}")
     if isinstance(node, CallExpression):
         name = _call_name(node.callee)
         if name:

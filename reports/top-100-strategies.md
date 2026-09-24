@@ -5,9 +5,9 @@ This list contains up to 100 strategies from the binance:BTC/USDT:1h baseline. O
 
 - **Ranking method:** raw total return, highest first; lower drawdown breaks ties
 - **Minimum trades:** 1
-- **Strategies eligible:** 815
+- **Strategies eligible:** 862
 - **Candles used:** 500
-- **Runtime version:** `0.2.0`
+- **Runtime version:** `0.3.0`
 - **Candle period:** 2026-09-03T02:00:00+00:00 through 2026-09-23T21:00:00+00:00
 
 The ranking is a baseline result, not a promise of future performance. A high return can come from a short sample, a lucky period, or an overfit strategy, so these candidates should be tested again on unseen data.
@@ -80,42 +80,42 @@ The ranking is a baseline result, not a promise of future performance. A high re
 | 62 | Dow Theory Swing Trading Dexter__yosIgLcb | 23 | 0.89% | 1.75% | 10,089.02 | `Strategies/Dow Theory Swing Trading Dexter__yosIgLcb.pine` |
 | 63 | BB + EMA10 Confirm + Color Fill__YJbWzMsA | 18 | 0.89% | 1.74% | 10,088.79 | `Strategies/BB + EMA10 Confirm + Color Fill__YJbWzMsA.pine` |
 | 64 | Moving Average Crossover Strategy__FX9JugDa | 15 | 0.89% | 1.66% | 10,088.53 | `Strategies/Moving Average Crossover Strategy__FX9JugDa.pine` |
-| 65 | Absolute Price Oscillator (APO) Backtest 2.0__636waeDH | 42 | 0.88% | 1.74% | 10,088.36 | `Strategies/Absolute Price Oscillator (APO) Backtest 2.0__636waeDH.pine` |
-| 66 | EMA & MA Crossover Strategy__pMhck82D | 44 | 0.88% | 1.73% | 10,088.35 | `Strategies/EMA & MA Crossover Strategy__pMhck82D.pine` |
-| 67 | Donchian Moving Average System__zcwztQsU | 20 | 0.88% | 1.66% | 10,088.34 | `Strategies/Donchian Moving Average System__zcwztQsU.pine` |
-| 68 | EMA SMMA STERGY__KH6Vh1tL | 36 | 0.88% | 1.67% | 10,088.32 | `Strategies/EMA SMMA STERGY__KH6Vh1tL.pine` |
-| 69 | Keltner Channel Strategy__lr30aANv | 15 | 0.88% | 1.64% | 10,088.29 | `Strategies/Keltner Channel Strategy__lr30aANv.pine` |
-| 70 | 50H 50L 15C EMA__UtI6KNJL | 9 | 0.88% | 1.63% | 10,088.18 | `Strategies/50H 50L 15C EMA__UtI6KNJL.pine` |
-| 71 | rachitjain strategy__rP81Z3fZ | 9 | 0.88% | 1.63% | 10,088.18 | `Strategies/rachitjain strategy__rP81Z3fZ.pine` |
-| 72 | Fixed Percent Stop Loss & Take Profit %__00WHGEoc | 30 | 0.88% | 1.65% | 10,088.10 | `Strategies/Fixed Percent Stop Loss & Take Profit %__00WHGEoc.pine` |
-| 73 | MACD,RSI & EMA strategy with MA+PSAR by MAM__v3igOvQW | 16 | 0.88% | 1.74% | 10,087.96 | `Strategies/MACD,RSI & EMA strategy with MA+PSAR by MAM__v3igOvQW.pine` |
-| 74 | Bull and Bear Fear Expert by Walter Downs Strategy__B85sdNEB | 37 | 0.88% | 1.73% | 10,087.96 | `Strategies/Bull and Bear Fear Expert by Walter Downs Strategy__B85sdNEB.pine` |
-| 75 | D DSP (Detrended Synthetic Price) Strategy 2 Backtest__HrkP0YQJ | 17 | 0.88% | 1.66% | 10,087.95 | `Strategies/D DSP (Detrended Synthetic Price) Strategy 2 Backtest__HrkP0YQJ.pine` |
-| 76 | Absolute Price Oscillator (APO) Backtest__VurlzOQB | 46 | 0.88% | 1.74% | 10,087.89 | `Strategies/Absolute Price Oscillator (APO) Backtest__VurlzOQB.pine` |
-| 77 | SMA Cross strategy__0ieKVyK1 | 22 | 0.88% | 1.66% | 10,087.53 | `Strategies/SMA Cross strategy__0ieKVyK1.pine` |
-| 78 | MA strategy__MI7pWKib | 42 | 0.87% | 1.73% | 10,087.38 | `Strategies/MA strategy__MI7pWKib.pine` |
-| 79 | Hull Trend with Kahlman Strategy Backtest__uJsHXXay | 36 | 0.87% | 1.73% | 10,087.16 | `Strategies/Hull Trend with Kahlman Strategy Backtest__uJsHXXay.pine` |
-| 80 | Exponential Bollinger Band Strategy__SAZM7jRJ | 39 | 0.87% | 1.73% | 10,087.13 | `Strategies/Exponential Bollinger Band Strategy__SAZM7jRJ.pine` |
-| 81 | ATR Strategy Back test__DW1GWSWQ | 13 | 0.87% | 1.64% | 10,086.74 | `Strategies/ATR Strategy Back test__DW1GWSWQ.pine` |
-| 82 | Bollinger Breakout Strategy with Direction Control [4H crypto]__7hTZJcdY | 15 | 0.87% | 1.66% | 10,086.71 | `Strategies/Bollinger Breakout Strategy with Direction Control [4H crypto]__7hTZJcdY.pine` |
-| 83 | High Low Bands Backtest__INPab7Qm | 9 | 0.87% | 1.65% | 10,086.58 | `Strategies/High Low Bands Backtest__INPab7Qm.pine` |
-| 84 | Channel Breakout BUY AND SELL Body TL SL AUTO REVERSE__49jEQa74 | 14 | 0.86% | 1.66% | 10,086.29 | `Strategies/Channel Breakout BUY AND SELL Body TL SL AUTO REVERSE__49jEQa74.pine` |
-| 85 | CMO & WMA Backtest ver 2.0__Gq5ZhJKn | 3 | 0.86% | 1.58% | 10,086.26 | `Strategies/CMO & WMA Backtest ver 2.0__Gq5ZhJKn.pine` |
-| 86 | Wilder’s Moving Average Strategy__wXtQeoOg | 23 | 0.86% | 1.61% | 10,086.23 | `Strategies/Wilder’s Moving Average Strategy__wXtQeoOg.pine` |
-| 87 | MACD River Strategy__kSxDplwf | 58 | 0.86% | 1.74% | 10,086.15 | `Strategies/MACD River Strategy__kSxDplwf.pine` |
-| 88 | Strategy RSI Backtest__s1I7HLtw | 17 | 0.86% | 1.74% | 10,085.66 | `Strategies/Strategy RSI Backtest__s1I7HLtw.pine` |
-| 89 | GK AI make money str__NLR75upz | 53 | 0.86% | 1.73% | 10,085.63 | `Strategies/GK AI make money str__NLR75upz.pine` |
-| 90 | GK make money str__WxvL8iks | 53 | 0.86% | 1.73% | 10,085.63 | `Strategies/GK make money str__WxvL8iks.pine` |
-| 91 | Trailing Stop Snippet__ygDE1PZV | 53 | 0.86% | 1.73% | 10,085.63 | `Strategies/Trailing Stop Snippet__ygDE1PZV.pine` |
-| 92 | D DSP (Detrended Synthetic Price) Strategy Backtest__0fPAMZFq | 29 | 0.85% | 1.74% | 10,085.38 | `Strategies/D DSP (Detrended Synthetic Price) Strategy Backtest__0fPAMZFq.pine` |
-| 93 | InvestAI Backtest Long Short v3__BJDRgy7z | 22 | 0.85% | 32.62% | 10,085.22 | `Strategies/InvestAI Backtest Long Short v3__BJDRgy7z.pine` |
-| 94 | GC Prime Logic__4SSEL5AX | 1 | 0.85% | 19.79% | 1,008,490.60 | `Strategies/GC Prime Logic__4SSEL5AX.pine` |
-| 95 | Gamma Blast Strategy__6rzqlTY7 | 31 | 0.85% | 1.67% | 10,084.89 | `Strategies/Gamma Blast Strategy__6rzqlTY7.pine` |
-| 96 | 2 20 Exponential Moving Average Backtest__YTPdhnN7 | 32 | 0.85% | 1.74% | 10,084.65 | `Strategies/2 20 Exponential Moving Average Backtest__YTPdhnN7.pine` |
-| 97 | Qstick Indicator Backtest__U5F49SlD | 67 | 0.85% | 1.75% | 10,084.64 | `Strategies/Qstick Indicator Backtest__U5F49SlD.pine` |
-| 98 | RSI based on ROC Backtest__BNWcbhs2 | 10 | 0.84% | 1.67% | 10,084.33 | `Strategies/RSI based on ROC Backtest__BNWcbhs2.pine` |
-| 99 | Stock Strat HL V1__gE3gAqE4 | 2 | 0.84% | 1.73% | 10,084.32 | `Strategies/Stock Strat HL V1__gE3gAqE4.pine` |
-| 100 | ddosok10 1min start__tK8c7FET | 58 | 0.84% | 1.74% | 10,083.81 | `Strategies/ddosok10 1min start__tK8c7FET.pine` |
+| 65 | Moving Average Intraday__VHagIA63 | 17 | 0.88% | 1.66% | 10,088.46 | `Strategies/Moving Average Intraday__VHagIA63.pine` |
+| 66 | Absolute Price Oscillator (APO) Backtest 2.0__636waeDH | 42 | 0.88% | 1.74% | 10,088.36 | `Strategies/Absolute Price Oscillator (APO) Backtest 2.0__636waeDH.pine` |
+| 67 | EMA & MA Crossover Strategy__pMhck82D | 44 | 0.88% | 1.73% | 10,088.35 | `Strategies/EMA & MA Crossover Strategy__pMhck82D.pine` |
+| 68 | Donchian Moving Average System__zcwztQsU | 20 | 0.88% | 1.66% | 10,088.34 | `Strategies/Donchian Moving Average System__zcwztQsU.pine` |
+| 69 | EMA SMMA STERGY__KH6Vh1tL | 36 | 0.88% | 1.67% | 10,088.32 | `Strategies/EMA SMMA STERGY__KH6Vh1tL.pine` |
+| 70 | Keltner Channel Strategy__lr30aANv | 15 | 0.88% | 1.64% | 10,088.29 | `Strategies/Keltner Channel Strategy__lr30aANv.pine` |
+| 71 | 50H 50L 15C EMA__UtI6KNJL | 9 | 0.88% | 1.63% | 10,088.18 | `Strategies/50H 50L 15C EMA__UtI6KNJL.pine` |
+| 72 | rachitjain strategy__rP81Z3fZ | 9 | 0.88% | 1.63% | 10,088.18 | `Strategies/rachitjain strategy__rP81Z3fZ.pine` |
+| 73 | Fixed Percent Stop Loss & Take Profit %__00WHGEoc | 30 | 0.88% | 1.65% | 10,088.10 | `Strategies/Fixed Percent Stop Loss & Take Profit %__00WHGEoc.pine` |
+| 74 | MACD,RSI & EMA strategy with MA+PSAR by MAM__v3igOvQW | 16 | 0.88% | 1.74% | 10,087.96 | `Strategies/MACD,RSI & EMA strategy with MA+PSAR by MAM__v3igOvQW.pine` |
+| 75 | Bull and Bear Fear Expert by Walter Downs Strategy__B85sdNEB | 37 | 0.88% | 1.73% | 10,087.96 | `Strategies/Bull and Bear Fear Expert by Walter Downs Strategy__B85sdNEB.pine` |
+| 76 | D DSP (Detrended Synthetic Price) Strategy 2 Backtest__HrkP0YQJ | 17 | 0.88% | 1.66% | 10,087.95 | `Strategies/D DSP (Detrended Synthetic Price) Strategy 2 Backtest__HrkP0YQJ.pine` |
+| 77 | Absolute Price Oscillator (APO) Backtest__VurlzOQB | 46 | 0.88% | 1.74% | 10,087.89 | `Strategies/Absolute Price Oscillator (APO) Backtest__VurlzOQB.pine` |
+| 78 | SMA Cross strategy__0ieKVyK1 | 22 | 0.88% | 1.66% | 10,087.53 | `Strategies/SMA Cross strategy__0ieKVyK1.pine` |
+| 79 | MA strategy__MI7pWKib | 42 | 0.87% | 1.73% | 10,087.38 | `Strategies/MA strategy__MI7pWKib.pine` |
+| 80 | Hull Trend with Kahlman Strategy Backtest__uJsHXXay | 36 | 0.87% | 1.73% | 10,087.16 | `Strategies/Hull Trend with Kahlman Strategy Backtest__uJsHXXay.pine` |
+| 81 | Exponential Bollinger Band Strategy__SAZM7jRJ | 39 | 0.87% | 1.73% | 10,087.13 | `Strategies/Exponential Bollinger Band Strategy__SAZM7jRJ.pine` |
+| 82 | ATR Strategy Back test__DW1GWSWQ | 13 | 0.87% | 1.64% | 10,086.74 | `Strategies/ATR Strategy Back test__DW1GWSWQ.pine` |
+| 83 | Bollinger Breakout Strategy with Direction Control [4H crypto]__7hTZJcdY | 15 | 0.87% | 1.66% | 10,086.71 | `Strategies/Bollinger Breakout Strategy with Direction Control [4H crypto]__7hTZJcdY.pine` |
+| 84 | DC Breakout Strategy This is simplicity at its finest__t8RsAhP7 | 14 | 0.87% | 4.89% | 10,086.65 | `Strategies/DC Breakout Strategy This is simplicity at its finest__t8RsAhP7.pine` |
+| 85 | High Low Bands Backtest__INPab7Qm | 9 | 0.87% | 1.65% | 10,086.58 | `Strategies/High Low Bands Backtest__INPab7Qm.pine` |
+| 86 | Channel Breakout BUY AND SELL Body TL SL AUTO REVERSE__49jEQa74 | 14 | 0.86% | 1.66% | 10,086.29 | `Strategies/Channel Breakout BUY AND SELL Body TL SL AUTO REVERSE__49jEQa74.pine` |
+| 87 | CMO & WMA Backtest ver 2.0__Gq5ZhJKn | 3 | 0.86% | 1.58% | 10,086.26 | `Strategies/CMO & WMA Backtest ver 2.0__Gq5ZhJKn.pine` |
+| 88 | Wilder’s Moving Average Strategy__wXtQeoOg | 23 | 0.86% | 1.61% | 10,086.23 | `Strategies/Wilder’s Moving Average Strategy__wXtQeoOg.pine` |
+| 89 | MACD River Strategy__kSxDplwf | 58 | 0.86% | 1.74% | 10,086.15 | `Strategies/MACD River Strategy__kSxDplwf.pine` |
+| 90 | Supertrend blind following__y3YPdIiF | 16 | 0.86% | 1.67% | 10,085.68 | `Strategies/Supertrend blind following__y3YPdIiF.pine` |
+| 91 | Strategy RSI Backtest__s1I7HLtw | 17 | 0.86% | 1.74% | 10,085.66 | `Strategies/Strategy RSI Backtest__s1I7HLtw.pine` |
+| 92 | GK AI make money str__NLR75upz | 53 | 0.86% | 1.73% | 10,085.63 | `Strategies/GK AI make money str__NLR75upz.pine` |
+| 93 | GK make money str__WxvL8iks | 53 | 0.86% | 1.73% | 10,085.63 | `Strategies/GK make money str__WxvL8iks.pine` |
+| 94 | Trailing Stop Snippet__ygDE1PZV | 53 | 0.86% | 1.73% | 10,085.63 | `Strategies/Trailing Stop Snippet__ygDE1PZV.pine` |
+| 95 | D DSP (Detrended Synthetic Price) Strategy Backtest__0fPAMZFq | 29 | 0.85% | 1.74% | 10,085.38 | `Strategies/D DSP (Detrended Synthetic Price) Strategy Backtest__0fPAMZFq.pine` |
+| 96 | InvestAI Backtest Long Short v3__BJDRgy7z | 22 | 0.85% | 32.62% | 10,085.22 | `Strategies/InvestAI Backtest Long Short v3__BJDRgy7z.pine` |
+| 97 | GC Prime Logic__4SSEL5AX | 1 | 0.85% | 19.79% | 1,008,490.60 | `Strategies/GC Prime Logic__4SSEL5AX.pine` |
+| 98 | Gamma Blast Strategy__6rzqlTY7 | 31 | 0.85% | 1.67% | 10,084.89 | `Strategies/Gamma Blast Strategy__6rzqlTY7.pine` |
+| 99 | 2 20 Exponential Moving Average Backtest__YTPdhnN7 | 32 | 0.85% | 1.74% | 10,084.65 | `Strategies/2 20 Exponential Moving Average Backtest__YTPdhnN7.pine` |
+| 100 | Qstick Indicator Backtest__U5F49SlD | 67 | 0.85% | 1.75% | 10,084.64 | `Strategies/Qstick Indicator Backtest__U5F49SlD.pine` |
 
 ## What the leaders did
 

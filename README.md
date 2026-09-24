@@ -87,20 +87,23 @@ returns a printable/indexable `BacktestReport`:
 python -m pip install -e ".[backtest]"
 ```
 
-The backtest runtime is deliberately separate from the basic expression runtime. It supports common indicators, long/short orders, stop/limit fills, pyramiding, partial exits, local Pine libraries, semantic validation, reproducible candle snapshots, and OOS/walk-forward research. For a fast archive-wide baseline, install the extra and run:
+The backtest runtime is deliberately separate from the basic expression runtime. It supports common indicators, long/short orders, stop/limit fills, pyramiding, partial exits, user-defined objects/methods, local Pine libraries, semantic validation, reproducible candle snapshots, and OOS/walk-forward research. Interrupted step/time-limited runs retain a clearly marked partial snapshot. For a fast archive-wide baseline, install the extra and run:
 
 ```bash
 pine-backtest-batch \
-  --root /path/to/PineScripts_All \
+  --root /path/to/Pine \
+  --libraries /path/to/Pine/TradingView/Libraries \
   --cache .cache/btc-usdt-1h.json \
   --output reports/baseline-btcusdt-1h.json \
   --csv reports/baseline-btcusdt-1h.csv
 ```
 
-The batch command fetches public Binance BTC/USDT 1h data once, processes the
-archive's `Strategies/` directory in parallel with a progress bar/ETA, and
-writes an indexed JSON/CSV report. A plain-English Markdown summary and
-best-100 list can be generated from that JSON with:
+The batch command accepts either a flat archive (`ROOT/Strategies`) or the
+maintained grouped download tree (it selects the populated source group and
+matching `Libraries` directory). It fetches public Binance BTC/USDT 1h data
+once, processes strategies in parallel with a progress bar/ETA, and writes an
+indexed JSON/CSV report. A plain-English Markdown summary and best-100 list can
+be generated from that JSON with:
 
 ```bash
 pine-backtest-report \

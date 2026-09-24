@@ -41,6 +41,7 @@ from pine_interpreter.backtest import (
     classify_error,
     clear_parse_cache,
     compare_markets,
+    discover_library_root,
     discover_strategy_files,
     error_location,
     fetch_public_ohlcv,
@@ -77,7 +78,7 @@ from pine_interpreter.interpreter import ExecutionResult, Interpreter
 from pine_interpreter.lexer import Lexer, Token, TokenType
 from pine_interpreter.parser import Parser, Program
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "BACKTEST_RUNTIME_VERSION",
@@ -138,6 +139,7 @@ __all__ = [
     "TokenType",
     "Trade",
     "StrategyResult",
+    "discover_library_root",
     "discover_strategy_files",
     "fetch_public_ohlcv",
     "fetch_public_snapshot",

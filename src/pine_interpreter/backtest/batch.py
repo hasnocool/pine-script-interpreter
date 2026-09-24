@@ -22,6 +22,7 @@ from pine_interpreter.backtest.models import (
     BacktestConfig,
     BacktestExecutionLimitError,
     BacktestExecutionTimeoutError,
+    BacktestReport,
     BacktestValidationError,
     Candle,
 )
@@ -50,9 +51,14 @@ class StrategyResult:
     validation_issues: tuple[str, ...] = ()
     approximations: tuple[str, ...] = ()
     library_dependencies: tuple[str, ...] = ()
+    partial_report: BacktestReport | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        result = asdict(self)
+        result["partial_report"] = (
+            self.partial_report.to_dict() if self.partial_report is not None else None
+        )
+        return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +101,7 @@ class BatchBacktestReport:
             "validation_errors": statuses.get("validation_error", 0),
             "execution_limits": statuses.get("execution_limit", 0),
             "execution_timeouts": statuses.get("execution_timeout", 0),
+            "partial_results": sum(result.partial_report is not None for result in self.results),
             "runtime_errors": statuses.get("runtime_error", 0) + statuses.get("worker_error", 0),
             "io_errors": statuses.get("io_error", 0),
             **{f"status_{key}": value for key, value in sorted(statuses.items())},
@@ -115,6 +122,18 @@ class BatchBacktestReport:
             if result.error_category:
                 categories[result.error_category] = categories.get(result.error_category, 0) + 1
         return categories
+
+    def slowest_results(self, limit: int = 10) -> tuple[StrategyResult, ...]:
+        """Return the longest wall-clock strategy executions in stable order."""
+
+        if limit < 1:
+            raise BacktestValidationError("limit must be at least one")
+        return tuple(
+            sorted(
+                self.results,
+                key=lambda result: (-result.elapsed_seconds, result.name.casefold()),
+            )[:limit]
+        )
 
     @property
     def by_name(self) -> dict[str, StrategyResult]:
@@ -160,6 +179,8 @@ class BatchBacktestReport:
             return self.summary
         if key == "error_categories":
             return self.error_categories
+        if key == "partial_results":
+            return tuple(result for result in self.results if result.partial_report is not None)
         if key == "duplicate_hashes":
             return self.duplicate_hashes
         if key == "results":
@@ -271,28 +292,19 @@ class BatchBacktestReport:
                     library_dependencies=tuple(
                         str(item) for item in row.get("library_dependencies", [])
                     ),
+                    partial_report=(
+                        BacktestReport.from_dict(row["partial_report"])
+                        if isinstance(row.get("partial_report"), Mapping)
+                        else None
+                    ),
                 )
             )
         config_data = data.get("config")
         config: BacktestConfig | None = None
         if isinstance(config_data, Mapping):
             try:
-                config = BacktestConfig(
-                    initial_cash=float(config_data.get("initial_cash", 10_000)),
-                    fee_rate=float(config_data.get("fee_rate", 0.001)),
-                    slippage_bps=float(config_data.get("slippage_bps", 0.0)),
-                    default_qty=float(config_data.get("default_qty", 1.0)),
-                    pyramiding=int(config_data.get("pyramiding", 1)),
-                    allow_short=bool(config_data.get("allow_short", False)),
-                    close_at_end=bool(config_data.get("close_at_end", False)),
-                    max_execution_steps=int(config_data.get("max_execution_steps", 1_000_000)),
-                    max_execution_seconds=float(config_data.get("max_execution_seconds", 30.0)),
-                    intrabar_policy=str(config_data.get("intrabar_policy", "stop_first")),
-                    spread_bps=float(config_data.get("spread_bps", 0.0)),
-                    funding_rate_bps=float(config_data.get("funding_rate_bps", 0.0)),
-                    commission_per_trade=float(config_data.get("commission_per_trade", 0.0)),
-                )
-            except (TypeError, ValueError) as exc:
+                config = BacktestConfig.from_dict(config_data)
+            except BacktestValidationError as exc:
                 raise BacktestValidationError(f"invalid batch report config: {exc}") from exc
         try:
             started_at = datetime.fromisoformat(str(metadata["started_at"]))
@@ -637,6 +649,7 @@ def _failed_result(
     category_override: str | None = None,
 ) -> StrategyResult:
     category = classify_error(error)
+    partial_report = getattr(error, "partial_report", None)
     return StrategyResult(
         str(path),
         name,
@@ -646,8 +659,26 @@ def _failed_result(
         error_category=category_override or category.value,
         error_location=error_location(error),
         source_hash=source_hash,
+        execution_steps=(
+            partial_report.execution_steps
+            if isinstance(partial_report, BacktestReport)
+            else None
+        ),
         features=features,
         validation_issues=validation_issues,
+        approximations=(
+            partial_report.approximations
+            if isinstance(partial_report, BacktestReport)
+            else ()
+        ),
+        library_dependencies=(
+            partial_report.library_dependencies
+            if isinstance(partial_report, BacktestReport)
+            else ()
+        ),
+        partial_report=(
+            partial_report if isinstance(partial_report, BacktestReport) else None
+        ),
     )
 
 
@@ -691,12 +722,58 @@ def _format_duration(seconds: float) -> str:
 
 
 def discover_strategy_files(root: str | Path) -> tuple[Path, ...]:
-    """Return sorted Pine files from an archive's ``Strategies`` directory."""
+    """Return sorted strategy files from an archive root.
 
-    strategy_dir = Path(root) / "Strategies"
-    if not strategy_dir.is_dir():
-        raise BacktestValidationError(f"strategy directory does not exist: {strategy_dir}")
-    return tuple(sorted(strategy_dir.glob("*.pine")))
+    Flat archives use ``ROOT/Strategies``. The maintained download tree stores
+    source groups in child directories, so a single populated child
+    ``Strategies`` directory (currently TradingView) is accepted as well.
+    """
+
+    source_root = Path(root)
+    direct = source_root / "Strategies"
+    if direct.is_dir():
+        return tuple(sorted(direct.glob("*.pine")))
+    candidates: list[Path] = []
+    if source_root.is_dir():
+        candidates = sorted(
+            child / "Strategies"
+            for child in source_root.iterdir()
+            if child.is_dir() and (child / "Strategies").is_dir()
+        )
+    populated = [directory for directory in candidates if any(directory.glob("*.pine"))]
+    if not populated:
+        raise BacktestValidationError(f"strategy directory does not exist: {direct}")
+    return tuple(sorted(path for directory in populated for path in directory.glob("*.pine")))
+
+
+def discover_library_root(root: str | Path) -> Path | None:
+    """Find the matching library directory for a flat or grouped archive root."""
+
+    source_root = Path(root)
+    direct = source_root / "Libraries"
+    if direct.is_dir():
+        return direct
+    if not source_root.is_dir():
+        return None
+    if source_root.is_dir():
+        strategy_sources = [
+            child
+            for child in source_root.iterdir()
+            if child.is_dir()
+            and (child / "Strategies").is_dir()
+            and any((child / "Strategies").glob("*.pine"))
+        ]
+        if len(strategy_sources) == 1:
+            matching_library = strategy_sources[0] / "Libraries"
+            if matching_library.is_dir():
+                return matching_library
+    candidates = sorted(
+        child / "Libraries"
+        for child in source_root.iterdir()
+        if child.is_dir() and (child / "Libraries").is_dir()
+    )
+    populated = [directory for directory in candidates if any(directory.rglob("*.pine"))]
+    return populated[0] if len(populated) == 1 else None
 
 
 def run_strategy_batch(

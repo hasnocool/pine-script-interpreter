@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from pine_interpreter.backtest.batch import (
+    discover_library_root,
     discover_strategy_files,
     run_strategy_batch,
     validate_strategy_batch,
@@ -22,14 +23,19 @@ from pine_interpreter.backtest.models import BacktestConfig, BacktestError
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Backtest every Pine file in an archive Strategies directory"
+        description="Backtest Pine files in a flat or grouped strategy archive"
     )
-    parser.add_argument("--root", type=Path, required=True, help="PineScripts_All archive root")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        required=True,
+        help="Archive root (flat ROOT/Strategies or grouped source tree)",
+    )
     parser.add_argument(
         "--libraries",
         type=Path,
         default=None,
-        help="Optional Pine library directory (defaults to ROOT/Libraries)",
+        help="Optional Pine library directory (auto-detected when omitted)",
     )
     parser.add_argument("--exchange", default="binance")
     parser.add_argument("--symbol", default="BTC/USDT")
@@ -142,7 +148,7 @@ def main() -> None:
                 library_root=(
                     args.libraries
                     if args.libraries is not None
-                    else (args.root / "Libraries" if (args.root / "Libraries").is_dir() else None)
+                    else discover_library_root(args.root)
                 ),
             )
         report.write_json(args.output)

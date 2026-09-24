@@ -195,6 +195,7 @@ def build_overall_markdown(
     flat = len(returns) - positive - negative
     approximation_count = sum(bool(result.approximations) for result in report.results)
     library_count = sum(bool(result.library_dependencies) for result in report.results)
+    partial_count = int(summary["partial_results"])
     lines = [
         "# Overall Pine Backtest Baseline",
         "",
@@ -213,6 +214,7 @@ def build_overall_markdown(
         f"- **Produced completed trades:** {len(trade_results):,}",
         f"- **Ran without completed orders:** {int(summary['no_orders']):,}",
         f"- **Could not be evaluated:** {total - len(report.successful):,}",
+        f"- **Saved partial interrupted results:** {partial_count:,}",
         f"- **Used an explicit approximation:** {approximation_count:,}",
         f"- **Used a local Pine library:** {library_count:,}",
         f"- **Duplicate source groups:** {len(report.duplicate_hashes):,}",
@@ -253,6 +255,11 @@ def build_overall_markdown(
                 "Execution-limit stops",
                 f"{int(summary['execution_limits']):,}",
                 "The strategy exceeded the safety step budget.",
+            ),
+            _table_row(
+                "Wall-clock timeout stops",
+                f"{int(summary['execution_timeouts']):,}",
+                "The strategy exceeded the wall-clock budget; a partial snapshot may be saved.",
             ),
             _table_row(
                 "Runtime errors",
@@ -342,6 +349,75 @@ def build_overall_markdown(
                     f"{count:,}",
                     _format_percent(count / len(errors) * 100),
                 )
+            )
+    partial_results = report["partial_results"]
+    if isinstance(partial_results, tuple) and partial_results:
+        lines.extend(
+            [
+                "",
+                "## Interrupted-run snapshots",
+                "",
+                "These rows preserve accounting through the last completed bar. They are "
+                "diagnostics only and are never eligible for the ranking.",
+                "",
+                "| Strategy | Stop reason | Completed bars | Completed trades | "
+                "Final equity | Open side |",
+                "| --- | --- | ---: | ---: | ---: | --- |",
+            ]
+        )
+        for result in sorted(
+            partial_results,
+            key=lambda item: (
+                -item.partial_report.bars if item.partial_report is not None else 0,
+                item.name.casefold(),
+            ),
+        )[:10]:
+            partial = result.partial_report
+            if partial is None:
+                continue
+            open_position = partial.open_position or {}
+            lines.append(
+                _table_row(
+                    result.name,
+                    result.status,
+                    str(partial.bars),
+                    str(len(partial.trades)),
+                    _format_number(partial.final_equity),
+                    str(open_position.get("side", "flat")),
+                )
+            )
+    slowest = report.slowest_results(10)
+    if slowest:
+        lines.extend(
+            [
+                "",
+                "## Slowest executions",
+                "",
+                "These wall-clock measurements are profiling signals, not performance results.",
+                "",
+                "| Strategy | Status | Elapsed | Execution steps | Partial bars | Partial trades |",
+                "| --- | --- | ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for result in slowest:
+            partial = result.partial_report
+            lines.append(
+                "| "
+                + " | ".join(
+                    (
+                        _escape_cell(result.name),
+                        _escape_cell(result.status),
+                        f"{result.elapsed_seconds:.3f}s",
+                        str(
+                            result.execution_steps
+                            if result.execution_steps is not None
+                            else "n/a"
+                        ),
+                        str(partial.bars if partial is not None else "n/a"),
+                        str(len(partial.trades) if partial is not None else "n/a"),
+                    )
+                )
+                + " |"
             )
     lines.extend(
         [

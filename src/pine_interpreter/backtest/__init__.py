@@ -3,6 +3,7 @@
 from pine_interpreter.backtest.batch import (
     BatchBacktestReport,
     StrategyResult,
+    discover_library_root,
     discover_strategy_files,
     run_strategy_batch,
     validate_strategy_batch,
@@ -124,6 +125,7 @@ __all__ = [
     "PineBacktester",
     "StrategyResult",
     "Trade",
+    "discover_library_root",
     "discover_strategy_files",
     "classify_error",
     "error_location",

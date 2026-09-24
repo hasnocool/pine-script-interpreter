@@ -5,7 +5,7 @@
 This document describes the features and abilities that should be added next to
 turn the archive-wide baseline into a useful Pine research platform.
 
-## Implementation status (runtime 0.2.0)
+## Implementation status (runtime 0.3.0)
 
 The first implementation pass is now in the repository. The original counts
 below are retained as the historical pre-runtime baseline; rerun the batch
@@ -24,36 +24,45 @@ Implemented in the current pass:
   pyramiding, percent/cash sizing, partial exits, fees, spread, slippage, and
   configurable per-bar funding
 - semantic analysis and `--validate-only` batch mode
-- wall-clock and step safety limits with parallel workers
+- wall-clock and step safety limits with parallel workers; interrupted runs
+  persist completed-bar partial snapshots and slowest-execution profiling
+- dictionary-backed user-defined types, constructors, mutating instance/global
+  methods, object arrays/maps, imported types, and drawing-handle approximations
+- named input defaults, common string/map helpers, and richer collection/object
+  dispatch
 - indexed JSON/CSV reports, plain-English Markdown, source/data/runtime
   provenance, and a SQLite result index/terminal explorer
 - chronological splits, walk-forward/OOS runs, parameter sweeps, market
   comparisons, risk metrics, and reproducible benchmark suites
 
-The latest local baseline (runtime `0.2.0`, cached Binance BTC/USDT `1h`
+The latest local baseline (runtime `0.3.0`, cached Binance BTC/USDT `1h`
 snapshot, 500 candles, 6,081 strategies) measured:
 
-- **815** strategies with completed trades
-- **2,435** no-order results
-- **2,771** validation errors
-- **43** execution-limit stops and **17** wall-clock timeout stops
+- **862** strategies with completed trades
+- **2,583** no-order results
+- **2,569** validation errors
+- **49** execution-limit stops and **18** wall-clock timeout stops
+- **67** partial diagnostic snapshots
 - **0** runtime errors and **0** parse errors
 
-This is a coverage report, not a profitability claim. The result includes
-feature inventories for all 6,081 sources, source hashes, the candle content
-hash, and explicit approximation markers. Re-run the batch after any runtime
-change rather than comparing these counts to the historical baseline.
+This is a coverage report, not a profitability claim. The target archive is
+`Pine/TradingView`: 20,479 Pine files parse successfully, including the 6,081
+strategy files used for the baseline. The result includes feature inventories,
+source hashes, the candle content hash, and explicit approximation markers.
+Re-run the batch after any runtime change rather than comparing these counts to
+the historical baseline.
 
-The highest-value remaining work is compatibility depth (objects/types,
-complete order accounting, session/timeframe semantics, and more builtins),
-richer profiling/partial-timeout artifacts, broader compatibility fixtures,
-and a tick- or trade-level data adapter. These should be implemented only
-with explicit policies and regression measurements; see the detailed
-milestones below.
+The highest-value remaining work is compatibility depth (complete exchange
+order/margin accounting, session/timeframe semantics, and more builtins),
+broader compatibility fixtures, and a tick- or trade-level data adapter.
+Partial-timeout artifacts and a first user-defined-object runtime are now
+implemented; these should be expanded only with explicit policies and
+regression measurements; see the detailed milestones below.
 
-The recommendations are based on the current baseline:
+The recommendations below retain an earlier pre-0.3 coverage snapshot for
+comparison with the current baseline:
 
-- **6,081** strategies in the archive's `Strategies/` directory were attempted.
+- **6,081** strategies in the archive's populated strategy directory were attempted.
 - **273** produced at least one completed trade.
 - **4,474** ran without a completed order.
 - **1,260** hit validation errors.
@@ -61,7 +70,7 @@ The recommendations are based on the current baseline:
 - **36** hit runtime errors.
 - **0** failed parsing.
 
-The largest recorded evaluation blockers were:
+The earlier snapshot's largest recorded evaluation blockers were:
 
 | Blocker | Count | What it tells us |
 | --- | ---: | --- |
@@ -72,8 +81,8 @@ The largest recorded evaluation blockers were:
 | Missing objects or values | 32 | Object, tuple, and `request.*` semantics are incomplete. |
 | Cash or order-sizing failures | 25 | The broker needs a fuller position-sizing and margin model. |
 
-A strategy appearing high in the current report is not automatically a good
-investment. The current report is a technical baseline on one market, one
+A strategy appearing high in the current 0.3.0 report is not automatically a
+good investment. The current report is a technical baseline on one market, one
 timeframe, and one relatively short data sample.
 
 ## Guiding principles
@@ -95,17 +104,17 @@ timeframe, and one relatively short data sample.
 - **Milestone 1 — implemented:** formal categories, snapshot metadata/hashes,
   runtime/config provenance, semantic validation, and execution limits.
 - **Milestone 2 — partially implemented:** the common `ta.*` surface,
-  strategy accounting/order controls, approximate `request.*`, and namespace
-  constants are present; deep type/object and exchange-specific semantics
-  remain.
+  strategy accounting/order controls, approximate `request.*`, namespace
+  constants, and dictionary-backed user-defined objects are present; deeper
+  qualifier typing and exchange-specific semantics remain.
 - **Milestone 3 — implemented as a research toolkit:** OOS/walk-forward,
   multi-market runs, risk-adjusted rankings, duplicate hashes, and benchmark
   helpers are available. OOS labels and benchmark fields are not yet merged
   into every historical batch artifact.
 - **Milestone 4 — partially implemented:** SQLite indexing, terminal explorer,
-  bounded sweeps, and parsed-source caching are available. A browser UI,
-  incremental cache database, and language-server integration remain future
-  work.
+  bounded sweeps, parsed-source caching, partial-result persistence, and
+  slowest-execution profiling are available. A browser UI, incremental cache
+  database, and language-server integration remain future work.
 ## Priority 0 — Make results trustworthy
 
 These should be completed before treating the top-100 list as a meaningful
@@ -190,8 +199,12 @@ should:
 - Apply both an execution-step limit and a wall-clock timeout
 - Kill and replace timed-out workers safely
 - Track peak memory and approximate CPU time
-- Save a partial result when a strategy times out
+- Save a partial result when a strategy times out or hits the execution limit
 - Display the slowest strategies in the batch summary
+
+**Current implementation:** wall-clock time, execution steps, completed-bar
+partial snapshots, and slowest-strategy tables are persisted. Peak memory and
+worker replacement are still future work.
 
 This is essential when scaling from thousands of strategies to the full
 archive or to many parameter combinations.
@@ -263,6 +276,11 @@ The runtime should model:
 - Method calls and fields on user-defined types
 - `var`, `varip`, and persistent state rules
 - `na` propagation through arithmetic, comparisons, and function calls
+
+**Current implementation:** constructors, field mutation, global and instance
+methods, imported types, object arrays/maps, and explicit dictionary-backed
+representation are covered by regression tests. Full qualifier inference,
+copy-on-write semantics, and reference identity checks remain future work.
 
 This will reduce false runtime errors and prevent invalid values from reaching
 the broker.

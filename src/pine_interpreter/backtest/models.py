@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Iterator
-from dataclasses import dataclass
+from collections.abc import Iterator, Mapping
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
-from typing import overload
+from typing import Any, overload
 
-BACKTEST_RUNTIME_VERSION = "0.2.0"
+BACKTEST_RUNTIME_VERSION = "0.3.0"
 
 
 class BacktestError(Exception):
@@ -28,9 +28,13 @@ class BacktestValidationError(BacktestError, ValueError):
 class BacktestExecutionLimitError(BacktestValidationError):
     """Raised when a strategy exceeds the configured execution-step budget."""
 
+    partial_report: BacktestReport | None = None
+
 
 class BacktestExecutionTimeoutError(BacktestValidationError):
     """Raised when a strategy exceeds the configured wall-clock budget."""
+
+    partial_report: BacktestReport | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +153,29 @@ class BacktestConfig:
         if not math.isfinite(self.commission_per_trade) or self.commission_per_trade < 0:
             raise BacktestValidationError("commission_per_trade must be non-negative and finite")
 
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> BacktestConfig:
+        """Build a validated configuration from a serialized mapping."""
+
+        try:
+            return cls(
+                initial_cash=float(data.get("initial_cash", 10_000)),
+                fee_rate=float(data.get("fee_rate", 0.001)),
+                slippage_bps=float(data.get("slippage_bps", 0.0)),
+                default_qty=float(data.get("default_qty", 1.0)),
+                pyramiding=int(data.get("pyramiding", 1)),
+                allow_short=bool(data.get("allow_short", False)),
+                close_at_end=bool(data.get("close_at_end", False)),
+                max_execution_steps=int(data.get("max_execution_steps", 1_000_000)),
+                max_execution_seconds=float(data.get("max_execution_seconds", 30.0)),
+                intrabar_policy=str(data.get("intrabar_policy", "stop_first")),
+                spread_bps=float(data.get("spread_bps", 0.0)),
+                funding_rate_bps=float(data.get("funding_rate_bps", 0.0)),
+                commission_per_trade=float(data.get("commission_per_trade", 0.0)),
+            )
+        except (TypeError, ValueError) as exc:
+            raise BacktestValidationError(f"invalid serialized backtest config: {exc}") from exc
+
 
 @dataclass(frozen=True, slots=True)
 class Trade:
@@ -204,9 +231,11 @@ class BacktestReport:
     runtime_version: str = BACKTEST_RUNTIME_VERSION
     config: BacktestConfig | None = None
     library_dependencies: tuple[str, ...] = ()
+    partial: bool = False
+    open_position: dict[str, Any] | None = None
 
     @property
-    def metrics(self) -> dict[str, float | int | None]:
+    def metrics(self) -> dict[str, float | int | bool | None]:
         gross_profit = sum(trade.pnl for trade in self.trades if trade.pnl > 0)
         gross_loss = -sum(trade.pnl for trade in self.trades if trade.pnl < 0)
         winners = sum(trade.pnl > 0 for trade in self.trades)
@@ -218,6 +247,7 @@ class BacktestReport:
         return {
             "bars": self.bars,
             "execution_steps": self.execution_steps,
+            "is_partial": self.partial,
             "trade_count": len(self.trades),
             "final_equity": self.final_equity,
             "total_return": self.final_equity - self.initial_cash,
@@ -271,6 +301,10 @@ class BacktestReport:
             return self.bars
         if key == "runtime_version":
             return self.runtime_version
+        if key == "partial":
+            return self.partial
+        if key == "open_position":
+            return self.open_position
         if key == "config":
             return self.config
         metrics = self.metrics
@@ -288,7 +322,8 @@ class BacktestReport:
         metrics = self.metrics
         return "\n".join(
             (
-                f"{self.name} | {self.exchange}:{self.symbol}:{self.timeframe}",
+                f"{self.name} | {self.exchange}:{self.symbol}:{self.timeframe}"
+                + (" | PARTIAL" if self.partial else ""),
                 f"Bars: {self.bars} | Trades: {len(self.trades)}",
                 f"Initial: {self.initial_cash:,.2f} | Final: {self.final_equity:,.2f}",
                 (
@@ -302,6 +337,105 @@ class BacktestReport:
 
     def print(self) -> None:
         print(self)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-compatible representation of the report."""
+
+        return {
+            "name": self.name,
+            "symbol": self.symbol,
+            "timeframe": self.timeframe,
+            "exchange": self.exchange,
+            "initial_cash": self.initial_cash,
+            "final_equity": self.final_equity,
+            "trades": [
+                {
+                    **asdict(trade),
+                    "entry_timestamp": trade.entry_timestamp.isoformat(),
+                    "exit_timestamp": trade.exit_timestamp.isoformat(),
+                }
+                for trade in self.trades
+            ],
+            "equity_curve": [
+                {**asdict(point), "timestamp": point.timestamp.isoformat()}
+                for point in self.equity_curve
+            ],
+            "bars": self.bars,
+            "execution_steps": self.execution_steps,
+            "approximations": list(self.approximations),
+            "runtime_version": self.runtime_version,
+            "config": asdict(self.config) if self.config is not None else None,
+            "library_dependencies": list(self.library_dependencies),
+            "partial": self.partial,
+            "open_position": self.open_position,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> BacktestReport:
+        """Rehydrate a completed or partial report from JSON-compatible data."""
+
+        try:
+            trades = tuple(
+                Trade(
+                    entry_index=int(trade["entry_index"]),
+                    exit_index=int(trade["exit_index"]),
+                    entry_timestamp=cls._parse_datetime(trade["entry_timestamp"]),
+                    exit_timestamp=cls._parse_datetime(trade["exit_timestamp"]),
+                    side=str(trade["side"]),
+                    quantity=float(trade["quantity"]),
+                    entry_price=float(trade["entry_price"]),
+                    exit_price=float(trade["exit_price"]),
+                    pnl=float(trade["pnl"]),
+                    fees=float(trade["fees"]),
+                    reason=str(trade.get("reason", "exit")),
+                )
+                for trade in data.get("trades", [])
+            )
+            equity_curve = tuple(
+                EquityPoint(
+                    index=int(point["index"]),
+                    timestamp=cls._parse_datetime(point["timestamp"]),
+                    equity=float(point["equity"]),
+                    drawdown=float(point.get("drawdown", 0.0)),
+                )
+                for point in data.get("equity_curve", [])
+            )
+            config_data = data.get("config")
+            return cls(
+                name=str(data["name"]),
+                symbol=str(data["symbol"]),
+                timeframe=str(data["timeframe"]),
+                exchange=str(data["exchange"]),
+                initial_cash=float(data["initial_cash"]),
+                final_equity=float(data["final_equity"]),
+                trades=trades,
+                equity_curve=equity_curve,
+                bars=int(data["bars"]),
+                execution_steps=int(data.get("execution_steps", 0)),
+                approximations=tuple(str(item) for item in data.get("approximations", [])),
+                runtime_version=str(data.get("runtime_version", BACKTEST_RUNTIME_VERSION)),
+                config=(
+                    BacktestConfig.from_dict(config_data)
+                    if isinstance(config_data, Mapping)
+                    else None
+                ),
+                library_dependencies=tuple(
+                    str(item) for item in data.get("library_dependencies", [])
+                ),
+                partial=bool(data.get("partial", False)),
+                open_position=(
+                    dict(data["open_position"])
+                    if isinstance(data.get("open_position"), Mapping)
+                    else None
+                ),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise BacktestValidationError(f"invalid serialized backtest report: {exc}") from exc
+
+    @staticmethod
+    def _parse_datetime(value: object) -> datetime:
+        parsed = datetime.fromisoformat(str(value))
+        return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed.astimezone(UTC)
 
 
 def print_report(report: BacktestReport) -> None:

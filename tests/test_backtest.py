@@ -21,6 +21,7 @@ from pine_interpreter import (
     buy_and_hold_report,
     candle_data_hash,
     compare_markets,
+    discover_library_root,
     discover_strategy_files,
     load_snapshot,
     print_report,
@@ -184,6 +185,23 @@ def test_candle_snapshot_records_hash_and_round_trips(tmp_path: Path) -> None:
     assert any("content hash" in warning for warning in load_snapshot(tampered_path).warnings)
 
 
+def test_grouped_archive_discovery_finds_populated_strategy_and_library_roots(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "GitHub" / "Strategies").mkdir(parents=True)
+    tradingview = tmp_path / "TradingView"
+    strategy_dir = tradingview / "Strategies"
+    library_dir = tradingview / "Libraries"
+    strategy_dir.mkdir(parents=True)
+    library_dir.mkdir(parents=True)
+    strategy = strategy_dir / "alpha.pine"
+    strategy.write_text(PINE_STRATEGY, encoding="utf-8")
+    (library_dir / "helpers.pine").write_text("//@version=6\n", encoding="utf-8")
+
+    assert discover_strategy_files(tmp_path) == (strategy,)
+    assert discover_library_root(tmp_path) == library_dir
+
+
 def test_strategy_batch_indexes_results_and_records_failures(tmp_path: Path) -> None:
     strategy_dir = tmp_path / "Strategies"
     strategy_dir.mkdir()
@@ -318,6 +336,27 @@ def test_input_overrides_allow_bounded_parameter_research() -> None:
         config=BacktestConfig(close_at_end=True),
     )
     assert sweep.summary["successful"] == 2
+
+
+def test_named_input_defaults_are_available_to_runtime_objects() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("named input", overlay=true)
+        text = input.text_area(title="Text", defval="a,b")
+        parts = str.split(text, ",")
+        if bar_index == 0 and parts.size() == 2
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102]),
+    )
+
+    assert len(report) == 1
 
 
 def test_walk_forward_and_risk_metrics_are_reproducible() -> None:
@@ -608,8 +647,194 @@ def test_runtime_step_limit_stops_runaway_strategy() -> None:
         """
     )
 
-    with pytest.raises(BacktestExecutionLimitError, match="execution step limit"):
+    with pytest.raises(BacktestExecutionLimitError, match="execution step limit") as raised:
         BacktestEngine(BacktestConfig(max_execution_steps=20)).run(
             source,
             make_candles([100, 101]),
         )
+
+    assert raised.value.partial_report is not None
+    assert raised.value.partial_report.partial is True
+    assert raised.value.partial_report.bars == 0
+
+
+def test_interrupted_runtime_preserves_completed_bars_and_batch_json(tmp_path: Path) -> None:
+    strategy_dir = tmp_path / "Strategies"
+    strategy_dir.mkdir()
+    source = dedent(
+        """
+        //@version=6
+        strategy("partial", overlay=true)
+        if bar_index == 0
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            while true
+                value = close
+        """
+    )
+    strategy = strategy_dir / "partial.pine"
+    strategy.write_text(source, encoding="utf-8")
+    candles = make_candles([100, 101, 102, 101, 100])
+    report = run_strategy_batch(
+        [strategy],
+        candles,
+        exchange="synthetic",
+        symbol="TEST/USDT",
+        timeframe="1d",
+        config=BacktestConfig(max_execution_steps=8, close_at_end=True),
+        max_workers=1,
+        show_progress=False,
+    )
+
+    result = report.by_name["partial"]
+    assert result.status == "execution_limit"
+    assert result.partial_report is not None
+    assert result.partial_report.bars == 1
+    assert result.partial_report.partial is True
+    assert result.partial_report.final_equity == pytest.approx(9899.9)
+    assert result.partial_report.open_position is not None
+    assert result.partial_report.open_position["side"] == "long"
+    assert result.execution_steps == result.partial_report.execution_steps
+    assert result.approximations == result.partial_report.approximations
+    assert report.summary["partial_results"] == 1
+    loaded = type(report).from_json(report.write_json(tmp_path / "partial.json"))
+    restored = loaded.by_name["partial"].partial_report
+    assert restored is not None
+    assert restored.bars == 1
+    assert restored.to_dict() == result.partial_report.to_dict()
+    assert "Interrupted-run snapshots" in build_overall_markdown(report)
+
+
+def test_user_defined_type_constructors_and_mutating_methods_execute() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("objects", overlay=true)
+        type State
+            int count = 0
+            method increment(State this, int amount) =>
+                this.count := this.count + amount
+                this
+        var state = State.new()
+        if bar_index == 0
+            state := state.increment(2)
+        if bar_index == 1
+            strategy.entry("Long", strategy.long, qty=state.count)
+        if bar_index == 3
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102, 101, 100]),
+    )
+
+    assert len(report) == 1
+    assert report[0].quantity == 2
+
+
+def test_global_methods_and_maps_support_object_composition() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("composition", overlay=true)
+        method increment(int value) => value + 1
+        values = map.new<string, int>()
+        values.put("answer", 41)
+        answer = values.get("answer").increment()
+        if bar_index == 0 and answer == 42
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102]),
+    )
+
+    assert len(report) == 1
+
+
+def test_drawing_handles_keep_nonessential_methods_explicitly_approximated() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("drawing", overlay=true)
+        method slope(line handle) => handle.get_y2() - handle.get_y1()
+        handle = line.new(0, 1, 2, 3)
+        if bar_index == 0 and handle.slope() == 2
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102]),
+    )
+
+    assert len(report) == 1
+    assert "drawing.handles" in report.approximations
+
+
+def test_nontrading_builtins_are_explicitly_approximated() -> None:
+    source = dedent(
+        """
+        //@version=6
+        strategy("nontrading builtins", overlay=true)
+        text = tostring(bar_index)
+        seconds = timeframe.in_seconds()
+        ha = heikinashi()
+        risingTwo = rising(close, 2)
+        plotarrow(risingTwo, close)
+        log.info(text)
+        if bar_index == 0 and seconds == 86400
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(
+        BacktestConfig(close_at_end=True),
+    ).run(source, make_candles([100, 101, 102]), timeframe="1d")
+
+    assert len(report) == 1
+    assert "plotting.non_trading" in report.approximations
+    assert "heikinashi.ohlc" in report.approximations
+
+
+def test_imported_user_defined_types_construct_and_dispatch_methods(tmp_path: Path) -> None:
+    library_root = tmp_path / "Libraries"
+    library_root.mkdir()
+    (library_root / "objects.pine").write_text(
+        dedent(
+            """
+            //@version=6
+            export type Point
+                int value
+                method add(Point this, int amount) =>
+                    this.value := this.value + amount
+                    this.value
+            """
+        ),
+        encoding="utf-8",
+    )
+    source = dedent(
+        """
+        //@version=6
+        strategy("imported objects", overlay=true)
+        import "objects" as objects
+        point = objects.Point.new(2)
+        if bar_index == 0 and point.add(3) == 5
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(
+        BacktestConfig(close_at_end=True),
+        library_root=library_root,
+    ).run(source, make_candles([100, 101, 102]))
+
+    assert len(report) == 1
