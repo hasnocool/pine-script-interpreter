@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pine_interpreter.backtest.models import (
     BACKTEST_RUNTIME_VERSION,
@@ -464,6 +464,9 @@ class _PineRuntime:
         self.call_history: dict[str, list[Any]] = {}
         self._equity_history: list[float] = []
         self.call_seen: set[str] = set()
+        self._callee_name_cache: dict[int, str | None] = {}
+        self._series_key_cache: dict[int, str | None] = {}
+        self._true_range_cache: tuple[int, list[float]] | None = None
         self.input_cache: dict[str, Any] = {}
         self.input_overrides = dict(input_overrides or {})
         self.approximations: set[str] = set()
@@ -2898,6 +2901,9 @@ class _PineRuntime:
         return [*self.history.get(name, []), current]
 
     def _true_range_series(self) -> list[float]:
+        cached = self._true_range_cache
+        if cached is not None and cached[0] == self.current_index:
+            return cached[1]
         highs = self._ohlcv_series("high")
         lows = self._ohlcv_series("low")
         closes = self._ohlcv_series("close")
@@ -2913,6 +2919,7 @@ class _PineRuntime:
                     abs(low - previous_close),
                 )
             )
+        self._true_range_cache = (self.current_index, ranges)
         return ranges
 
     def _ema_series(self, values: Sequence[Any], length: int) -> list[float]:
@@ -4259,30 +4266,42 @@ class _PineRuntime:
         return target, expression.property
 
     def _callee_name(self, expression: Expression) -> str | None:
+        key = id(expression)
+        if key in self._callee_name_cache:
+            return self._callee_name_cache[key]
         if isinstance(expression, (Identifier, NaLiteral)):
-            return "na" if isinstance(expression, NaLiteral) else expression.name
-        if isinstance(expression, MemberExpression):
+            result: str | None = "na" if isinstance(expression, NaLiteral) else expression.name
+        elif isinstance(expression, MemberExpression):
             object_name = self._callee_name(expression.object)
-            return f"{object_name}.{expression.property}" if object_name else None
-        return None
+            result = f"{object_name}.{expression.property}" if object_name else None
+        else:
+            result = None
+        self._callee_name_cache[key] = result
+        return result
 
     def _series_key(self, expression: Expression) -> str | None:
+        key = id(expression)
+        if key in self._series_key_cache:
+            return self._series_key_cache[key]
         if isinstance(expression, Identifier):
-            return expression.name
-        if isinstance(expression, MemberExpression):
+            result: str | None = expression.name
+        elif isinstance(expression, MemberExpression):
             parent = self._series_key(expression.object)
-            return f"{parent}.{expression.property}" if parent else None
-        if isinstance(expression, CallExpression):
+            result = f"{parent}.{expression.property}" if parent else None
+        elif isinstance(expression, CallExpression):
             callee = self._callee_name(expression.callee)
             args = ",".join(
                 self._series_key(argument) or "?"
                 for argument in expression.arguments
                 if isinstance(argument, Expression)
             )
-            return f"call:{callee}({args})" if callee else None
-        if isinstance(expression, HistoryExpression):
-            return self._series_key(expression.expression)
-        return None
+            result = f"call:{callee}({args})" if callee else None
+        elif isinstance(expression, HistoryExpression):
+            result = self._series_key(expression.expression)
+        else:
+            result = None
+        self._series_key_cache[key] = result
+        return result
 
     def _history(self, expression: Expression, offset: int, values: dict[str, Any]) -> Any:
         if offset == 0:
@@ -4315,6 +4334,11 @@ class _PineRuntime:
         return None if value is None else self._number(value)
 
     def _number(self, value: Any) -> float:
+        value_type = type(value)
+        if value_type is float:
+            return cast(float, value)
+        if value_type is int:
+            return float(value)
         if isinstance(value, bool):
             self.approximations.add("legacy.bool_numeric")
             return 1.0 if value else 0.0
