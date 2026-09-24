@@ -491,12 +491,13 @@ class _PineRuntime:
         self.values: dict[str, Any] = {}
         self.persistent: dict[str, Any] = {}
         self.persistent_names: set[str] = set()
+        self._scoped_persistent: set[str] = set()
         self.history: dict[str, list[Any]] = {}
         self.call_history: dict[str, list[Any]] = {}
         self._equity_history: list[float] = []
         self.call_seen: set[str] = set()
         self._callee_name_cache: dict[int, str | None] = {}
-        self._series_key_cache: dict[int, str | None] = {}
+        self._series_key_cache: dict[tuple[int, str], str | None] = {}
         self._true_range_cache: tuple[int, list[float]] | None = None
         self.input_cache: dict[str, Any] = {}
         self.input_overrides = dict(input_overrides or {})
@@ -510,6 +511,11 @@ class _PineRuntime:
         self._library_stack: tuple[Path, ...] = ()
         self._active_library: Program | None = None
         self._series_scope: str = ""
+        self._series_locals: frozenset[str] = frozenset()
+        self._call_site: int = 0
+        self._scoped_history: dict[str, list[Any]] = {}
+        self._scoped_pending: dict[str, Any] = {}
+        self._bound_names_cache: dict[int, frozenset[str]] = {}
         self.functions: dict[str, FunctionDeclaration] = {}
         self.methods: dict[str, FunctionDeclaration] = {}
         self.types: dict[str, TypeDeclaration] = {}
@@ -703,7 +709,13 @@ class _PineRuntime:
                     "last_bar_index": len(candles) - 1,
                     "na": None,
                 }
-                self.values.update(self.persistent)
+                self.values.update(
+                    {
+                        name: value
+                        for name, value in self.persistent.items()
+                        if name in self.persistent_names
+                    }
+                )
                 for statement in self.program.statements:
                     self._execute_statement(statement, self.values)
                 if self.config.funding_rate_bps:
@@ -959,6 +971,13 @@ class _PineRuntime:
         for key, values in self.call_history.items():
             if key not in self.call_seen:
                 values.append(None)
+        # A function's own series advance with the bars just like a global's,
+        # so keep one entry per bar and pad the bars the function was not
+        # called on, otherwise a parameter's `[1]` and any `ta.*` window over
+        # it would see a shorter history than Pine gives it.
+        for key, values in self._scoped_history.items():
+            values.append(self._scoped_pending.get(key))
+        self._scoped_pending.clear()
 
     def _consume_execution_step(self) -> None:
         self.execution_steps += 1
@@ -990,23 +1009,40 @@ class _PineRuntime:
                     exc.location = str(location)
             raise
 
+    def _persistent_key(self, name: str) -> str:
+        """Storage key for a `var`/`varip` declaration.
+
+        Pine gives a `var` declared inside a function its own storage per call
+        site, and keeps it out of the global namespace, so key those by scope
+        instead of by bare name.
+        """
+
+        if self._series_scope and name in self._series_locals:
+            return f"{self._series_scope}.{name}"
+        return name
+
     def _execute_statement_inner(self, statement: Statement, values: dict[str, Any]) -> Any:
         self._consume_execution_step()
         if isinstance(statement, VariableDeclaration):
             if statement.storage in {"var", "varip"} or statement.qualifier == "input":
-                if statement.name in self.persistent:
-                    values[statement.name] = self.persistent[statement.name]
+                key = self._persistent_key(statement.name)
+                if key in self.persistent:
+                    values[statement.name] = self.persistent[key]
                     return values[statement.name]
                 value = self._evaluate(statement.value, values)
                 self._validate_type_value(value, statement.type_annotation, values)
                 values[statement.name] = value
-                self.persistent[statement.name] = value
-                self.persistent_names.add(statement.name)
+                self.persistent[key] = value
+                if key == statement.name:
+                    self.persistent_names.add(statement.name)
+                else:
+                    self._scoped_persistent.add(key)
                 return value
             value = self._evaluate(statement.value, values)
             self._validate_type_value(value, statement.type_annotation, values)
             values[statement.name] = value
             self.history.setdefault(statement.name, [])
+            self._note_scoped(statement.name, value)
             return value
         if isinstance(statement, AssignmentStatement):
             if statement.operator in {"=", ":="}:
@@ -1167,8 +1203,10 @@ class _PineRuntime:
     def _assign(self, target: Expression, value: Any, values: dict[str, Any]) -> None:
         if isinstance(target, Identifier):
             values[target.name] = value
-            if target.name in self.persistent_names:
-                self.persistent[target.name] = value
+            self._note_scoped(target.name, value)
+            key = self._persistent_key(target.name)
+            if key in self._scoped_persistent or target.name in self.persistent_names:
+                self.persistent[key] = value
             return
         if isinstance(target, MemberExpression):
             object_value = self._evaluate(target.object, values)
@@ -1176,6 +1214,20 @@ class _PineRuntime:
                 object_value[target.property] = value
             return
         raise BacktestValidationError("assignment target must be an identifier or member")
+
+    def _note_scoped(self, name: str, value: Any) -> None:
+        """Track a function-bound name's value so its own `[1]` can resolve.
+
+        A local or parameter has no entry in the global history, so without
+        this a function that refers to its own state (`res := f(res[1])`)
+        would never see a previous value.  The last write of the bar wins,
+        which is the value Pine carries into the next bar.
+        """
+
+        if self._series_scope and name in self._series_locals:
+            key = f"{self._series_scope}.{name}"
+            self._scoped_history.setdefault(key, [])
+            self._scoped_pending[key] = value
 
     def _evaluate(self, expression: Expression, values: dict[str, Any]) -> Any:
         if isinstance(expression, NumberLiteral):
@@ -1322,7 +1374,9 @@ class _PineRuntime:
             if expression.name in self.enums:
                 return expression.name
             if expression.name in self.functions:
-                return self._call_function(self.functions[expression.name], (), {}, values)
+                return self._call_function(
+                    self.functions[expression.name], (), {}, values, expression
+                )
             raise BacktestValidationError(f"unknown Pine identifier: {expression.name}")
         if isinstance(expression, UnaryExpression):
             return self._unary(expression, values)
@@ -1856,6 +1910,11 @@ class _PineRuntime:
         # run side effects twice, e.g. `array.shift().delete()` draining two
         # elements per iteration.
         resolved_receiver = receiver if receiver_known else _UNEVALUATED
+        # Capture the call site now that the receiver and arguments are
+        # evaluated, so a function entered below is scoped to *this* call.
+        # Pine gives every call site its own series state, so two calls to the
+        # same function must not read each other's history.
+        self._call_site = id(expression)
         if callee is not None and "." in callee:
             namespace = callee.split(".", 1)[0]
             if namespace not in _BUILTIN_NAMESPACES:
@@ -5084,8 +5143,22 @@ class _PineRuntime:
         arguments: Sequence[Any],
         keywords: Mapping[str, Any],
         caller_values: dict[str, Any],
+        site: Node | None = None,
     ) -> Any:
         local = dict(caller_values)
+        old_values = self.values
+        old_active_library = self._active_library
+        old_series_scope = self._series_scope
+        old_series_locals = self._series_locals
+        self.values = local
+        self._active_library = self._function_owner.get(id(function))
+        # Install the scope before binding parameters so their values are
+        # recorded against this function rather than the caller.  The call
+        # site is part of the identity: a function called from two places
+        # keeps two independent series histories, as Pine does.
+        call_site = id(site) if site is not None else self._call_site
+        self._series_scope = f"fn{id(function)}@{call_site}"
+        self._series_locals = self._bound_names(function)
         for index, parameter in enumerate(function.parameters):
             if index < len(arguments):
                 value = arguments[index]
@@ -5097,12 +5170,7 @@ class _PineRuntime:
                 value = None
             self._validate_type_value(value, parameter.type_annotation, caller_values)
             local[parameter.name] = value
-        old_values = self.values
-        old_active_library = self._active_library
-        old_series_scope = self._series_scope
-        self.values = local
-        self._active_library = self._function_owner.get(id(function))
-        self._series_scope = f"fn{id(function)}"
+            self._note_scoped(parameter.name, value)
         try:
             result: Any = None
             for statement in function.body:
@@ -5116,6 +5184,43 @@ class _PineRuntime:
             self.values = old_values
             self._active_library = old_active_library
             self._series_scope = old_series_scope
+            self._series_locals = old_series_locals
+
+    def _bound_names(self, function: FunctionDeclaration) -> frozenset[str]:
+        """Names a function binds itself: its parameters plus its locals.
+
+        These are the only names whose recorded history belongs to the
+        function; every other name it reads is an outer series.
+        """
+
+        key = id(function)
+        cached = self._bound_names_cache.get(key)
+        if cached is not None:
+            return cached
+        names: set[str] = {parameter.name for parameter in function.parameters}
+        pending: list[Statement] = list(function.body)
+        while pending:
+            statement = pending.pop()
+            if isinstance(statement, VariableDeclaration):
+                names.add(statement.name)
+            elif isinstance(statement, AssignmentStatement):
+                if isinstance(statement.target, Identifier):
+                    names.add(statement.target.name)
+            elif isinstance(statement, TupleDeclaration):
+                for target in statement.targets:
+                    if isinstance(target, Identifier):
+                        names.add(target.name)
+            elif isinstance(statement, IfStatement):
+                pending.extend(statement.then_branch)
+                pending.extend(statement.else_branch)
+            elif isinstance(statement, (ForStatement, WhileStatement)):
+                pending.extend(statement.body)
+            elif isinstance(statement, SwitchStatement):
+                for case in statement.cases:
+                    pending.extend(case.body)
+        result = frozenset(names)
+        self._bound_names_cache[key] = result
+        return result
 
     def _dynamic_callee(
         self,
@@ -5151,15 +5256,21 @@ class _PineRuntime:
         return result
 
     def _series_key(self, expression: Expression) -> str | None:
-        key = id(expression)
+        # A function body is shared by every call site, so the scope has to be
+        # part of the cache key or the first call site's key would be reused
+        # for all the others.
+        key = (id(expression), self._series_scope)
         if key in self._series_key_cache:
             return self._series_key_cache[key]
         if isinstance(expression, Identifier):
-            # A parameter or local that shares a name with an outer variable
-            # must not share its recorded history, or a `f(source)` call would
-            # read back the global `source` series.
+            # Only a name the active function itself binds is scoped to it: a
+            # parameter or local that shadows an outer variable must not read
+            # back the outer variable's recorded history.  A function that
+            # merely reads a global keeps the global key, because that is the
+            # key `_record_history` writes the global's per-bar values under.
+            scoped = self._series_scope and expression.name in self._series_locals
             result: str | None = (
-                f"{self._series_scope}.{expression.name}" if self._series_scope else expression.name
+                f"{self._series_scope}.{expression.name}" if scoped else expression.name
             )
         elif isinstance(expression, MemberExpression):
             parent = self._series_key(expression.object)
@@ -5179,6 +5290,9 @@ class _PineRuntime:
         self._series_key_cache[key] = result
         return result
 
+    def _is_scoped_key(self, key: str) -> bool:
+        return bool(self._series_scope) and key.startswith(f"{self._series_scope}.")
+
     def _history(self, expression: Expression, offset: int, values: dict[str, Any]) -> Any:
         if offset == 0:
             return self._evaluate(expression, values)
@@ -5187,7 +5301,10 @@ class _PineRuntime:
         key = self._series_key(expression)
         if key is None:
             return None
-        source = self.history.get(key, self.call_history.get(key, []))
+        if self._is_scoped_key(key):
+            source = self._scoped_history.get(key, [])
+        else:
+            source = self.history.get(key, self.call_history.get(key, []))
         return source[-offset] if len(source) >= offset else None
 
     def _series_values_for_value(
@@ -5199,6 +5316,11 @@ class _PineRuntime:
         key = self._series_key(expression) if expression is not None else None
         if key is None:
             return [value]
+        if self._is_scoped_key(key):
+            # First read of this bar wins, matching how a call site's series
+            # records once per bar even when a function is invoked repeatedly.
+            self._scoped_pending.setdefault(key, value)
+            return [*self._scoped_history.get(key, []), value]
         prior = self.history.get(key, self.call_history.get(key, []))
         return [*prior, value]
 

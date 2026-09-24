@@ -1164,6 +1164,175 @@ def test_a_parameter_does_not_share_series_history_with_a_global() -> None:
     assert all(isinstance(trade.pnl, float) for trade in report.trades)
 
 
+def test_a_function_reading_a_global_keeps_the_global_history() -> None:
+    # A function that only reads globals must use the global's recorded
+    # history.  Scoping every identifier inside a function looked up a key
+    # nothing ever wrote, so `crossover` always compared against `na` and the
+    # strategy silently stopped trading.
+    source = dedent(
+        """
+        //@version=6
+        strategy("global series", overlay=true)
+        fast = ta.ema(close, 2)
+        slow = ta.ema(close, 5)
+        crossed() =>
+            ta.crossover(fast, slow)
+        if crossed()
+            strategy.entry("Long", strategy.long, qty=1)
+        if ta.crossunder(fast, slow)
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102, 103, 102, 101, 100, 99, 98, 99]),
+    )
+
+    assert report.trades
+
+
+def test_a_function_local_series_advances_across_bars() -> None:
+    # `res := f(res[1])` carries state inside the function.  Function-bound
+    # names had no recorded history, so `res[1]` was permanently `na` and the
+    # recurrence collapsed to its seed on every bar.
+    source = dedent(
+        """
+        //@version=6
+        strategy("local series", overlay=true)
+        running(step) =>
+            res = 0.0
+            res := nz(res[1]) + step
+            res
+        total = running(1)
+        // bar_index + 1, so the value is only right if `res[1]` resolved.
+        if bar_index == 4 and total == 5
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 5
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102, 103, 104, 105, 106]),
+    )
+
+    assert report.trades
+
+
+def test_two_call_sites_of_one_function_keep_independent_series() -> None:
+    # Pine gives every call site its own series state.  Sharing one history
+    # per function object let the later call's value overwrite the earlier
+    # call's, so the first call read the second call's state.
+    source = dedent(
+        """
+        //@version=6
+        strategy("call sites", overlay=true)
+        running(step) =>
+            res = 0.0
+            res := nz(res[1]) + step
+            res
+        first = running(1)
+        second = running(10)
+        independent = first == bar_index + 1 and second == 10 * (bar_index + 1)
+        if bar_index == 4 and independent
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 5
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102, 103, 104, 105, 106]),
+    )
+
+    assert report.trades
+
+
+def test_a_ta_average_over_a_parameter_uses_the_parameter_history() -> None:
+    # `ta.sma` builds its window from the source's recorded history.  A
+    # parameter had none, so the window held a single value and the average
+    # degenerated to the raw input.
+    source = dedent(
+        """
+        //@version=6
+        strategy("parameter window", overlay=true)
+        average(source, length) =>
+            ta.sma(source, length)
+        // A 3-bar mean of a rising series is always below its last value.
+        result = average(close, 3)
+        if not na(result) and result < close
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 1
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102, 103, 104, 105]),
+    )
+
+    assert report.trades
+
+
+def test_a_var_inside_a_function_is_per_call_site() -> None:
+    # `var` storage was keyed by bare name, so two call sites of one function
+    # shared a single accumulator.  The gated call site is what exposes it: it
+    # resumes from whatever the other call site last stored.
+    source = dedent(
+        """
+        //@version=6
+        strategy("var per call site", overlay=true)
+        running(step) =>
+            var float acc = 0.0
+            acc := acc + step
+            acc
+        first = bar_index % 2 == 0 ? running(1) : na
+        second = running(10)
+        // `first` advances only on even bars, `second` on every bar.
+        expected = na(first) or first == 1 + bar_index / 2
+        if bar_index == 4 and not na(first) and first == 3 and second == 50 and expected
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 5
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102, 103, 104, 105, 106]),
+    )
+
+    assert report.trades
+
+
+def test_a_function_var_does_not_leak_into_a_global_of_the_same_name() -> None:
+    # A `var` declared inside a function used to register its bare name as a
+    # global persistent name, so a later global assignment of that name wrote
+    # into the function's storage and corrupted its accumulator.
+    source = dedent(
+        """
+        //@version=6
+        strategy("var name collision", overlay=true)
+        counter() =>
+            var float acc = 0.0
+            acc := acc + 1
+            acc
+        total = counter()
+        acc := 99.0
+        // The global `acc` is 99, but the function keeps counting 1, 2, 3...
+        if bar_index == 4 and total == 5 and acc == 99
+            strategy.entry("Long", strategy.long, qty=1)
+        if bar_index == 5
+            strategy.close("Long")
+        """
+    )
+    report = BacktestEngine(BacktestConfig(close_at_end=True)).run(
+        source,
+        make_candles([100, 101, 102, 103, 104, 105, 106]),
+    )
+
+    assert report.trades
+
+
 def test_drawing_copies_are_independent_handles() -> None:
     source = dedent(
         """
